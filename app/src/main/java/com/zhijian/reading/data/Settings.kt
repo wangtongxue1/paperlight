@@ -44,6 +44,16 @@ class Settings(context: Context) {
         get() = p.getString("importTree", null)
         set(v) = p.edit().putString("importTree", v).apply()
 
+    /** Reader page mode: "scroll" (default) or "paged". */
+    var readerMode: String
+        get() = p.getString("readerMode", "scroll") ?: "scroll"
+        set(v) = p.edit().putString("readerMode", v).apply()
+
+    /** Reader text scale, 1 = the book's own size. */
+    var readerFontScale: Float
+        get() = p.getFloat("readerFontScale", 1f)
+        set(v) = p.edit().putFloat("readerFontScale", v).apply()
+
     // ---- Reading progress -------------------------------------------------
 
     fun progress(bookId: Long): Float = reading.getFloat("p$bookId", 0f)

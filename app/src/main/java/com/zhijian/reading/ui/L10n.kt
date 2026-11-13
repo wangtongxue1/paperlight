@@ -95,6 +95,36 @@ interface AppStrings {
     val smallerText: String
     val largerText: String
     val readerFailed: String
+    val readerToc: String
+    val readerBookmarks: String
+    val readerAnnotations: String
+    val readerLook: String
+    fun annotationCount(n: Int): String
+    val addBookmark: String
+    val bookmarkAdded: String
+    val noBookmarks: String
+    val noToc: String
+    val noAnnotations: String
+    val pageMode: String
+    val modeScroll: String
+    val modePaged: String
+    val fontSize: String
+    val makeNote: String
+    val copyText: String
+    val deselect: String
+    val copied: String
+    val noteHint: String
+    val noteSaved: String
+    val noteFailed: String
+    val exportNotes: String
+    val exportDone: String
+    val exportFail: String
+    val exportEmpty: String
+    val delete: String
+    val quoteLabel: String
+    val noteLabel: String
+    fun chapterPos(cur: Int, total: Int): String
+    fun pagePos(cur: Int, total: Int): String
 
     // ---- get books / import ----
     val getBooksTitle: String
@@ -231,6 +261,36 @@ object StringsZh : AppStrings {
     override val smallerText = "缩小字号"
     override val largerText = "放大字号"
     override val readerFailed = "这本书无法打开"
+    override val readerToc = "目录"
+    override val readerBookmarks = "书签"
+    override val readerAnnotations = "批注"
+    override val readerLook = "界面"
+    override fun annotationCount(n: Int) = "批注 ($n)"
+    override val addBookmark = "添加书签"
+    override val bookmarkAdded = "已加书签"
+    override val noBookmarks = "还没有书签，点击底栏的书签图标即可在当前位置添加。"
+    override val noToc = "这本书没有目录信息。"
+    override val noAnnotations = "还没有批注。选中正文文字即可划线并写下想法。"
+    override val pageMode = "翻页方式"
+    override val modeScroll = "上下滚动"
+    override val modePaged = "左右翻页"
+    override val fontSize = "字体大小"
+    override val makeNote = "批注"
+    override val copyText = "复制"
+    override val deselect = "取消"
+    override val copied = "已复制"
+    override val noteHint = "写点想法（可留空）"
+    override val noteSaved = "批注已保存"
+    override val noteFailed = "未能添加批注，请重新选择文字"
+    override val exportNotes = "导出"
+    override val exportDone = "批注已导出"
+    override val exportFail = "导出失败"
+    override val exportEmpty = "还没有可导出的批注"
+    override val delete = "删除"
+    override val quoteLabel = "原文"
+    override val noteLabel = "笔记"
+    override fun chapterPos(cur: Int, total: Int) = "$cur/$total 章 · "
+    override fun pagePos(cur: Int, total: Int) = "第 $cur / $total 页"
 
     override val getBooksTitle = "导入"
     override val urlImport = "链接导入"
@@ -365,6 +425,36 @@ object StringsEn : AppStrings {
     override val smallerText = "Smaller text"
     override val largerText = "Larger text"
     override val readerFailed = "This book could not be opened"
+    override val readerToc = "Contents"
+    override val readerBookmarks = "Bookmarks"
+    override val readerAnnotations = "Notes"
+    override val readerLook = "Display"
+    override fun annotationCount(n: Int) = "Notes ($n)"
+    override val addBookmark = "Add bookmark"
+    override val bookmarkAdded = "Bookmarked"
+    override val noBookmarks = "No bookmarks yet. Tap the bookmark icon in the bottom bar to drop one here."
+    override val noToc = "This book has no table of contents."
+    override val noAnnotations = "No notes yet. Select text in the book to highlight it and write a note."
+    override val pageMode = "Page turning"
+    override val modeScroll = "Scroll"
+    override val modePaged = "Flip pages"
+    override val fontSize = "Text size"
+    override val makeNote = "Note"
+    override val copyText = "Copy"
+    override val deselect = "Clear"
+    override val copied = "Copied"
+    override val noteHint = "A thought (optional)"
+    override val noteSaved = "Note saved"
+    override val noteFailed = "Could not add the note, select the text again"
+    override val exportNotes = "Export"
+    override val exportDone = "Notes exported"
+    override val exportFail = "The export failed"
+    override val exportEmpty = "Nothing to export yet"
+    override val delete = "Delete"
+    override val quoteLabel = "Quote"
+    override val noteLabel = "Note"
+    override fun chapterPos(cur: Int, total: Int) = "Ch. $cur/$total · "
+    override fun pagePos(cur: Int, total: Int) = "Page $cur of $total"
 
     override val getBooksTitle = "Import"
     override val urlImport = "Import from a link"
