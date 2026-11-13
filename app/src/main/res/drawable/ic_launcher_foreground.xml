@@ -1,22 +1,37 @@
-<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- open book: left page -->
+    <!-- open book, left page -->
     <path
-        android:fillColor="#2B2724"
-        android:pathData="M52.8,43 C43,36 33,31 23,34 C20,48 20,58 23,70 C33,73 43,76 52.8,73 Z" />
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#E2D8C6"
+        android:strokeWidth="1.4"
+        android:pathData="M52.6,46.5 C47.5,40.5 41.5,38.2 36.5,38.8 C35.6,38.9 35,39.7 35,40.6 L35,63.4 C35,64.5 36.1,65.3 37.2,65.1 C42,64.3 47.8,66.4 52.6,71.5 Z" />
 
-    <!-- open book: right page -->
+    <!-- open book, right page -->
     <path
-        android:fillColor="#2B2724"
-        android:pathData="M55.2,43 C65,36 75,31 85,34 C88,48 88,58 85,70 C75,73 65,76 55.2,73 Z" />
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#E2D8C6"
+        android:strokeWidth="1.4"
+        android:pathData="M55.4,46.5 C60.5,40.5 66.5,38.2 71.5,38.8 C72.4,38.9 73,39.7 73,40.6 L73,63.4 C73,64.5 71.9,65.3 70.8,65.1 C66,64.3 60.2,66.4 55.4,71.5 Z" />
+
+    <!-- spine shading -->
+    <path
+        android:fillColor="#EFE7D8"
+        android:pathData="M52.6,46.5 L55.4,46.5 L55.4,71.5 L52.6,71.5 Z" />
 
     <!-- cinnabar ribbon bookmark -->
     <path
-        android:fillColor="#C24A3A"
-        android:pathData="M61,26 L73,26 L73,56 L67,49 L61,56 Z" />
+        android:fillColor="#C9403A"
+        android:pathData="M52,37.5 L56,37.5 L56,55 L54,51.5 L52,55 Z" />
+
+    <!-- thin ground line -->
+    <path
+        android:strokeColor="#D8CDB8"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round"
+        android:pathData="M36,73.5 L72,73.5" />
 </vector>

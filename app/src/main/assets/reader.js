@@ -21,6 +21,7 @@
   var pager = null, flow = null;
   var PAD = 22;   // horizontal padding inside each column, matches the page's
   var GAP = 48;   // gap between columns = page gutter
+  var STEP = 0;   // distance from one column's start to the next
 
   function post(type, data) {
     try { window.AndroidReader.onEvent(type, JSON.stringify(data || {})); } catch (e) { }
@@ -37,8 +38,7 @@
       flow = document.createElement('div');
       flow.id = 'pl-flow';
       pager.style.cssText =
-        'position:fixed;top:0;left:0;right:0;bottom:0;overflow-x:auto;overflow-y:hidden;' +
-        '-webkit-overflow-scrolling:touch;';
+        'position:fixed;top:0;left:0;right:0;bottom:0;overflow-x:hidden;overflow-y:hidden;';
       while (body.firstChild) flow.appendChild(body.firstChild);
       pager.appendChild(flow);
       body.appendChild(pager);
@@ -51,25 +51,30 @@
 
   function layout() {
     if (!pager || !flow) return;
-    var h = window.innerHeight, w = window.innerWidth;
+    var h = pager.clientHeight, w = pager.clientWidth;
+    // The column box lives inside the flow's own horizontal padding, so the
+    // usable column width is the viewport minus both pads. Making the column
+    // exactly that wide puts one column per screen and keeps every page
+    // offset aligned with the scroll math.
+    var col = Math.max(100, w - 2 * PAD);
+    STEP = col + GAP;
     flow.style.height = h + 'px';
-    flow.style.columnWidth = w + 'px';
+    flow.style.columnWidth = col + 'px';
     flow.style.columnGap = GAP + 'px';
     flow.style.columnFill = 'auto';
     flow.style.padding = '20px ' + PAD + 'px 24px';
   }
 
   function pageCount() {
-    if (!pager || !flow) return 1;
-    var w = window.innerWidth;
-    return Math.max(1, Math.round((flow.scrollWidth - 2 * PAD + GAP) / (w + GAP)));
+    if (!pager || !flow || STEP <= 0) return 1;
+    return Math.max(1, Math.round((flow.scrollWidth - 2 * PAD + GAP) / STEP));
   }
 
   function gotoPage(p) {
     if (!pager) return;
     var n = pageCount();
     p = Math.max(0, Math.min(n - 1, p));
-    pager.scrollLeft = PAD + p * (window.innerWidth + GAP);
+    pager.scrollLeft = PAD + p * STEP;
     setTimeout(postMetrics, 80);
   }
 
@@ -103,7 +108,7 @@
   function postMetrics() {
     if (R.mode === 'paged' && pager) {
       R.pages = pageCount();
-      R.page = Math.max(0, Math.round((pager.scrollLeft - PAD) / (window.innerWidth + GAP)));
+      R.page = STEP > 0 ? Math.max(0, Math.round((pager.scrollLeft - PAD) / STEP)) : 0;
       R.page = Math.min(R.page, R.pages - 1);
       R.chapter = currentChapter();
       R.ratio = R.pages > 1 ? R.page / (R.pages - 1) : 0;
@@ -289,7 +294,7 @@
     if (R.mode === 'paged' && pager) {
       var n = pageCount();
       var p = Math.round(r * (n - 1));
-      pager.scrollLeft = PAD + p * (window.innerWidth + GAP);
+      pager.scrollLeft = PAD + p * STEP;
     } else {
       var max = doc.scrollHeight - window.innerHeight;
       window.scrollTo(0, r * Math.max(0, max));
