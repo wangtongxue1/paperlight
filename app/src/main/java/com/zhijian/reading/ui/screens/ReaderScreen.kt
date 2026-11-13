@@ -12,6 +12,10 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,30 +26,22 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.Bookmark
-import androidx.compose.material.icons.outlined.BookmarkAdd
-import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material.icons.outlined.DeleteOutline
-import androidx.compose.material.icons.outlined.EditNote
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.FormatListBulleted
-import androidx.compose.material.icons.outlined.IosShare
-import androidx.compose.material.icons.outlined.TextFormat
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -68,11 +64,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
+import com.zhijian.reading.R
 import com.zhijian.reading.data.Annotation
 import com.zhijian.reading.data.Book
 import com.zhijian.reading.data.Bookmark
@@ -116,11 +122,17 @@ private data class PageInfo(
 
 private enum class Panel { Toc, Annos, Look }
 
-/** One selected passage waiting for the reader to act on it. */
+/** One selected passage waiting for the reader to act on it, with where it sits on screen. */
 private data class Selection(
     val text: String,
     val chapter: Int,
+    val topY: Float = -1f,
+    val botY: Float = -1f,
+    val cxD: Float = -1f,
 )
+
+/** A frozen shot of the page flying away during a flip. */
+private data class FlipAnim(val bitmap: ImageBitmap, val forward: Boolean)
 
 /** Reads an EPUB: the spine in one scroll, with where you stopped kept. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -157,6 +169,9 @@ fun ReaderScreen(
     var noteFor by remember { mutableStateOf<Selection?>(null) }
     var marks by remember { mutableStateOf(notes.bookmarks(book.id)) }
     var annos by remember { mutableStateOf(notes.annotations(book.id)) }
+
+    var flip by remember { mutableStateOf<FlipAnim?>(null) }
+    val flipAnim = remember { Animatable(0f) }
 
     val ui = remember { Handler(Looper.getMainLooper()) }
     val sink = remember { Sink() }
@@ -201,17 +216,42 @@ fun ReaderScreen(
         selection = null
     }
 
+    fun capturePage(): ImageBitmap? = runCatching {
+        val b = android.graphics.Bitmap.createBitmap(
+            webView.width, webView.height, android.graphics.Bitmap.Config.ARGB_8888,
+        )
+        webView.draw(android.graphics.Canvas(b))
+        b.asImageBitmap()
+    }.getOrNull()
+
+    /** Freezes the current page, turns the engine, then flies the shot off like a leaf. */
+    fun flipPage(forward: Boolean) {
+        if (flip != null || info.pages <= 0) return
+        val bmp = capturePage() ?: return
+        flip = FlipAnim(bmp, forward)
+        runJs("window.__pl.${if (forward) "next" else "prev"}()")
+    }
+
+    LaunchedEffect(flip) {
+        val f = flip ?: return@LaunchedEffect
+        delay(90) // let the engine land on the new page and paint it
+        flipAnim.snapTo(0f)
+        flipAnim.animateTo(1f, tween(durationMillis = 300, easing = FastOutSlowInEasing))
+        flip = null
+    }
+
     fun onBridge(type: String, data: String) {
         val obj = runCatching { JSONObject(data) }.getOrNull() ?: return
+        val d = context.resources.displayMetrics.density
         when (type) {
             "tap" -> {
+                if (flip != null) return
                 // The engine reports CSS pixels; width is in device pixels.
-                val d = context.resources.displayMetrics.density
                 val x = obj.optDouble("x", 0.0).toFloat() * d
                 if (paged && info.pages > 0) {
                     when {
-                        x < webView.width * 0.32f -> runJs("window.__pl.prev()")
-                        x > webView.width * 0.68f -> runJs("window.__pl.next()")
+                        x < webView.width * 0.32f -> flipPage(false)
+                        x > webView.width * 0.68f -> flipPage(true)
                         else -> chromeOn = !chromeOn
                     }
                 } else {
@@ -234,7 +274,13 @@ fun ReaderScreen(
                 if (text.isBlank()) {
                     if (noteFor == null) selection = null
                 } else {
-                    selection = Selection(text, obj.optInt("chapter", info.chapter))
+                    selection = Selection(
+                        text = text,
+                        chapter = obj.optInt("chapter", info.chapter),
+                        topY = obj.optDouble("top", -1.0).toFloat() * d,
+                        botY = obj.optDouble("bottom", -1.0).toFloat() * d,
+                        cxD = obj.optDouble("cx", -1.0).toFloat() * d,
+                    )
                 }
             }
         }
@@ -356,7 +402,12 @@ fun ReaderScreen(
                             .clickable(onClick = onBack),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(Icons.Outlined.ArrowBack, "Back", tint = pal.icon, modifier = Modifier.size(21.dp))
+                        Icon(
+                            painterResource(R.drawable.ic_r_back),
+                            contentDescription = null,
+                            tint = pal.icon,
+                            modifier = Modifier.size(21.dp),
+                        )
                     }
                     Column(Modifier.weight(1f)) {
                         Text(
@@ -381,6 +432,53 @@ fun ReaderScreen(
                     factory = { webView },
                     modifier = Modifier.fillMaxSize(),
                 )
+
+                // The previous page flying away while a flip plays out.
+                flip?.let { f ->
+                    val dir = if (f.forward) -1f else 1f
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .zIndex(1f)
+                            .graphicsLayer { translationX = dir * flipAnim.value * webView.width },
+                    ) {
+                        Row(Modifier.fillMaxSize()) {
+                            if (!f.forward) {
+                                Box(
+                                    Modifier
+                                        .width(22.dp)
+                                        .fillMaxHeight()
+                                        .background(
+                                            Brush.horizontalGradient(
+                                                0f to Color.Black.copy(alpha = 0.30f),
+                                                1f to Color.Transparent,
+                                            ),
+                                        ),
+                                )
+                            }
+                            Image(
+                                bitmap = f.bitmap,
+                                contentDescription = null,
+                                contentScale = ContentScale.FillBounds,
+                                modifier = Modifier.weight(1f).fillMaxHeight(),
+                            )
+                            if (f.forward) {
+                                Box(
+                                    Modifier
+                                        .width(22.dp)
+                                        .fillMaxHeight()
+                                        .background(
+                                            Brush.horizontalGradient(
+                                                0f to Color.Transparent,
+                                                1f to Color.Black.copy(alpha = 0.30f),
+                                            ),
+                                        ),
+                                )
+                            }
+                        }
+                    }
+                }
+
                 if (loading || content == null) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
@@ -388,6 +486,41 @@ fun ReaderScreen(
                             style = Type.small,
                             color = pal.textTertiary,
                         )
+                    }
+                }
+
+                // Compact dark action pill hugging the selection, Apple Books style.
+                selection?.let { sel ->
+                    val config = LocalConfiguration.current
+                    val dens = LocalDensity.current
+                    val yTop = with(dens) { sel.topY.toDp() }
+                    val yBot = with(dens) { sel.botY.toDp() }
+                    val xC = with(dens) { sel.cxD.toDp() }
+                    val pillW = 118.dp
+                    val x = (xC - pillW / 2).coerceIn(8.dp, config.screenWidthDp.dp - pillW - 8.dp)
+                    val placeAbove = yTop >= 96.dp
+                    val y = if (placeAbove) yTop - 52.dp else yBot + 10.dp
+                    Row(
+                        Modifier
+                            .offset(x = x, y = y)
+                            .zIndex(3f)
+                            .shadow(10.dp, RoundedCornerShape(12.dp))
+                            .background(Color(0xE625221F), RoundedCornerShape(12.dp))
+                            .padding(horizontal = 4.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        PillIcon(R.drawable.ic_r_note, strings.makeNote, Color(0xFFEDE7DD)) {
+                            if (engineReady) noteFor = sel
+                        }
+                        PillIcon(R.drawable.ic_r_copy, strings.copyText, Color(0xFFEDE7DD)) {
+                            val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            cm.setPrimaryClip(ClipData.newPlainText("quote", sel.text))
+                            Toast.makeText(context, strings.copied, Toast.LENGTH_SHORT).show()
+                            clearSelection()
+                        }
+                        PillIcon(R.drawable.ic_r_close, strings.deselect, Color(0xFF9C968D)) {
+                            clearSelection()
+                        }
                     }
                 }
             }
@@ -407,92 +540,86 @@ fun ReaderScreen(
                 )
             }
 
-            // ---- bottom chrome -------------------------------------------------
+            // ---- bottom chrome: info line + labeled nav row -------------------
             AnimatedVisibility(visible = chromeOn) {
-                Row(
+                Column(
                     Modifier
                         .fillMaxWidth()
-                        .background(if (dark) pal.bgApp else pal.surface)
-                        .padding(start = 16.dp, end = 6.dp, top = 4.dp)
-                        .padding(bottom = navBottom + 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                        .background(if (dark) pal.bgApp else pal.surface),
                 ) {
-                    Text(
-                        text = if (info.mode == "paged" && info.pages > 0) {
-                            strings.pagePos(info.page, info.pages)
-                        } else {
-                            strings.chapterPos(info.chapter + 1, toc.size) + "${(info.ratio * 100).toInt()}%"
-                        },
-                        style = Type.numeric,
-                        color = pal.textTertiary,
-                        modifier = Modifier.weight(1f),
-                        maxLines = 1,
-                    )
-                    ReaderTool(Icons.Outlined.FormatListBulleted, strings.readerToc) { panel = Panel.Toc }
-                    ReaderTool(Icons.Outlined.BookmarkAdd, strings.addBookmark) {
-                        val title = toc.firstOrNull { it.index == info.chapter }?.title.orEmpty()
-                        val label = buildString {
-                            if (title.isNotBlank()) append(title.take(16))
-                            if (isNotEmpty()) append(" · ")
-                            append("${(info.ratio * 100).toInt()}%")
-                        }
-                        notes.addBookmark(book.id, info.ratio, info.chapter, label)
-                        marks = notes.bookmarks(book.id)
-                        Toast.makeText(context, strings.bookmarkAdded, Toast.LENGTH_SHORT).show()
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .padding(top = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = if (info.mode == "paged" && info.pages > 0) {
+                                strings.pagePos(info.page, info.pages)
+                            } else {
+                                strings.chapterPos(info.chapter + 1, toc.size) + "${(info.ratio * 100).toInt()}%"
+                            },
+                            style = Type.numeric,
+                            color = pal.textTertiary,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                        )
+                        Text(
+                            text = "${(progress * 100).toInt()}%",
+                            style = Type.numeric,
+                            color = pal.textTertiary,
+                        )
                     }
-                    ReaderTool(Icons.Outlined.EditNote, strings.readerAnnotations) { panel = Panel.Annos }
-                    ReaderTool(Icons.Outlined.TextFormat, strings.readerLook) { panel = Panel.Look }
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                            .padding(bottom = navBottom + 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        NavItem(
+                            R.drawable.ic_r_toc,
+                            strings.readerToc,
+                            panel == Panel.Toc,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            panel = Panel.Toc
+                        }
+                        NavItem(
+                            R.drawable.ic_r_bookmark,
+                            strings.readerBookmarks,
+                            false,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            val title = toc.firstOrNull { it.index == info.chapter }?.title.orEmpty()
+                            val label = buildString {
+                                if (title.isNotBlank()) append(title.take(16))
+                                if (isNotEmpty()) append(" · ")
+                                append("${(info.ratio * 100).toInt()}%")
+                            }
+                            notes.addBookmark(book.id, info.ratio, info.chapter, label)
+                            marks = notes.bookmarks(book.id)
+                            Toast.makeText(context, strings.bookmarkAdded, Toast.LENGTH_SHORT).show()
+                        }
+                        NavItem(
+                            R.drawable.ic_r_annotate,
+                            strings.readerAnnotations,
+                            panel == Panel.Annos,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            panel = Panel.Annos
+                        }
+                        NavItem(
+                            R.drawable.ic_r_look,
+                            strings.readerLook,
+                            panel == Panel.Look,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            panel = Panel.Look
+                        }
+                    }
                 }
-            }
-        }
-
-        // ---- selection actions ------------------------------------------------
-        selection?.let { sel ->
-            Row(
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .zIndex(3f)
-                    .padding(top = if (chromeOn) 60.dp else 8.dp)
-                    .shadow(10.dp, RoundedCornerShape(30.dp))
-                    .background(pal.surface, RoundedCornerShape(30.dp))
-                    .border(1.dp, pal.borderSubtle, RoundedCornerShape(30.dp))
-                    .padding(horizontal = 8.dp, vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    Icons.Outlined.EditNote,
-                    strings.makeNote,
-                    tint = pal.accent,
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(RoundedCornerShape(19.dp))
-                        .clickable {
-                            if (engineReady) noteFor = sel
-                        },
-                )
-                Icon(
-                    Icons.Outlined.ContentCopy,
-                    strings.copyText,
-                    tint = pal.icon,
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(RoundedCornerShape(19.dp))
-                        .clickable {
-                            val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            cm.setPrimaryClip(ClipData.newPlainText("quote", sel.text))
-                            Toast.makeText(context, strings.copied, Toast.LENGTH_SHORT).show()
-                            clearSelection()
-                        },
-                )
-                Icon(
-                    Icons.Outlined.Close,
-                    strings.deselect,
-                    tint = pal.icon,
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(RoundedCornerShape(19.dp))
-                        .clickable { clearSelection() },
-                )
             }
         }
     }
@@ -612,17 +739,49 @@ fun ReaderScreen(
     }
 }
 
+/** One labeled destination in the bottom chrome: icon on top, word below. */
 @Composable
-private fun ReaderTool(icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String, onClick: () -> Unit) {
+private fun NavItem(
+    iconRes: Int,
+    label: String,
+    active: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
     val pal = palette
+    Column(
+        modifier
+            .clip(RoundedCornerShape(Radius.md.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(
+            painterResource(iconRes),
+            contentDescription = label,
+            tint = if (active) pal.accent else pal.icon,
+            modifier = Modifier.size(21.dp),
+        )
+        Spacer(Modifier.height(3.dp))
+        Text(
+            text = label,
+            style = Type.numeric,
+            color = if (active) pal.accent else pal.textTertiary,
+        )
+    }
+}
+
+/** One tight dark button inside the selection pill. */
+@Composable
+private fun PillIcon(iconRes: Int, desc: String, tint: Color, onClick: () -> Unit) {
     Box(
         Modifier
-            .size(42.dp)
-            .clip(RoundedCornerShape(Radius.md.dp))
+            .size(34.dp)
+            .clip(RoundedCornerShape(10.dp))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, desc, tint = pal.icon, modifier = Modifier.size(20.dp))
+        Icon(painterResource(iconRes), desc, tint = tint, modifier = Modifier.size(17.dp))
     }
 }
 
@@ -684,7 +843,12 @@ private fun TocMarksPanel(
                         .padding(horizontal = 10.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Outlined.Bookmark, null, tint = pal.accent, modifier = Modifier.size(16.dp))
+                    Icon(
+                        painterResource(R.drawable.ic_r_bookmark),
+                        null,
+                        tint = pal.accent,
+                        modifier = Modifier.size(16.dp),
+                    )
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
                         Text(
@@ -701,7 +865,7 @@ private fun TocMarksPanel(
                         )
                     }
                     Icon(
-                        Icons.Outlined.DeleteOutline,
+                        painterResource(R.drawable.ic_r_delete),
                         strings.delete,
                         tint = pal.textTertiary,
                         modifier = Modifier
@@ -784,7 +948,7 @@ private fun AnnotationPanel(
                         modifier = Modifier.weight(1f),
                     )
                     Icon(
-                        Icons.Outlined.DeleteOutline,
+                        painterResource(R.drawable.ic_r_delete),
                         strings.delete,
                         tint = pal.textTertiary,
                         modifier = Modifier
@@ -803,7 +967,24 @@ private fun AnnotationPanel(
 private fun LookPanel(fontScale: Float, paged: Boolean, onFont: (Float) -> Unit, onMode: (Boolean) -> Unit) {
     val pal = palette
     val strings = strings
-    Text(strings.fontSize, style = Type.title, color = pal.text)
+
+    // ---- section 1: text size -------------------------------------------------
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            painterResource(R.drawable.ic_r_look),
+            null,
+            tint = pal.textSecondary,
+            modifier = Modifier.size(16.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(strings.fontSize, style = Type.title, color = pal.text)
+        Spacer(Modifier.weight(1f))
+        Text(
+            text = "${(fontScale * 100).toInt()}%",
+            style = Type.numeric,
+            color = pal.textTertiary,
+        )
+    }
     Spacer(Modifier.height(6.dp))
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text("A", style = Type.small, color = pal.textSecondary)
@@ -816,26 +997,91 @@ private fun LookPanel(fontScale: Float, paged: Boolean, onFont: (Float) -> Unit,
                 .padding(horizontal = 10.dp),
         )
         Text("A", style = Type.title, color = pal.textSecondary)
-        Spacer(Modifier.width(6.dp))
+    }
+
+    Spacer(Modifier.height(18.dp))
+    HorizontalDivider(color = pal.borderSubtle)
+    Spacer(Modifier.height(18.dp))
+
+    // ---- section 2: page mode, as two big cards --------------------------------
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            painterResource(R.drawable.ic_r_paged),
+            null,
+            tint = pal.textSecondary,
+            modifier = Modifier.size(16.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(strings.pageMode, style = Type.title, color = pal.text)
+    }
+    Spacer(Modifier.height(10.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        ModeCard(
+            selected = !paged,
+            iconRes = R.drawable.ic_r_scroll,
+            title = strings.modeScroll,
+            desc = strings.modeScrollDesc,
+            modifier = Modifier.weight(1f),
+        ) { onMode(false) }
+        ModeCard(
+            selected = paged,
+            iconRes = R.drawable.ic_r_paged,
+            title = strings.modePaged,
+            desc = strings.modePagedDesc,
+            modifier = Modifier.weight(1f),
+        ) { onMode(true) }
+    }
+}
+
+/** A large, unmistakable choice card for the page-turning mode. */
+@Composable
+private fun ModeCard(
+    selected: Boolean,
+    iconRes: Int,
+    title: String,
+    desc: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val pal = palette
+    Column(
+        modifier
+            .clip(RoundedCornerShape(Radius.md.dp))
+            .background(if (selected) pal.accentSubtle else pal.surfaceRaised)
+            .border(
+                width = if (selected) 1.5.dp else 1.dp,
+                color = if (selected) pal.accent else pal.borderSubtle,
+                shape = RoundedCornerShape(Radius.md.dp),
+            )
+            .clickable(onClick = onClick)
+            .padding(14.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                painterResource(iconRes),
+                null,
+                tint = if (selected) pal.accent else pal.textSecondary,
+                modifier = Modifier.size(20.dp),
+            )
+            Spacer(Modifier.weight(1f))
+            if (selected) {
+                Icon(
+                    painterResource(R.drawable.ic_r_check),
+                    null,
+                    tint = pal.accent,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(text = title, style = Type.body, color = pal.text)
+        Spacer(Modifier.height(2.dp))
         Text(
-            text = "${(fontScale * 100).toInt()}%",
+            text = desc,
             style = Type.numeric,
             color = pal.textTertiary,
-        )
-    }
-    Spacer(Modifier.height(16.dp))
-    Text(strings.pageMode, style = Type.title, color = pal.text)
-    Spacer(Modifier.height(8.dp))
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        FilterChip(
-            selected = !paged,
-            onClick = { onMode(false) },
-            label = { Text(strings.modeScroll) },
-        )
-        FilterChip(
-            selected = paged,
-            onClick = { onMode(true) },
-            label = { Text(strings.modePaged) },
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }

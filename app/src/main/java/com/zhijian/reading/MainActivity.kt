@@ -93,6 +93,16 @@ import java.io.File
 
 class MainActivity : ComponentActivity() {
 
+    override fun onActionModeStarted(mode: android.view.ActionMode?) {
+        // The reader draws its own compact selection pill; the system's
+        // floating text menu would stack on top of it, so swallow it.
+        if (mode?.type == android.view.ActionMode.TYPE_FLOATING) {
+            mode.finish()
+            return
+        }
+        super.onActionModeStarted(mode)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

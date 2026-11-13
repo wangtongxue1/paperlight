@@ -159,7 +159,15 @@
       var sel = window.getSelection();
       var txt = sel ? String(sel) : '';
       if (txt.length > 0) {
-        post('selection', { text: txt.slice(0, 600), chapter: currentChapter() });
+        var rect = null;
+        try { rect = sel.getRangeAt(0).getBoundingClientRect(); } catch (e) { }
+        post('selection', {
+          text: txt.slice(0, 600),
+          chapter: currentChapter(),
+          top: rect ? rect.top : -1,
+          bottom: rect ? rect.bottom : -1,
+          cx: rect ? (rect.left + rect.right) / 2 : -1,
+        });
       } else {
         post('selection', { text: '' });
       }

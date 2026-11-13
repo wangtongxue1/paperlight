@@ -108,6 +108,8 @@ interface AppStrings {
     val pageMode: String
     val modeScroll: String
     val modePaged: String
+    val modeScrollDesc: String
+    val modePagedDesc: String
     val fontSize: String
     val makeNote: String
     val copyText: String
@@ -274,6 +276,8 @@ object StringsZh : AppStrings {
     override val pageMode = "翻页方式"
     override val modeScroll = "上下滚动"
     override val modePaged = "左右翻页"
+    override val modeScrollDesc = "连续滚动，手指滑动阅读"
+    override val modePagedDesc = "仿真书页，点两侧或滑动翻页"
     override val fontSize = "字体大小"
     override val makeNote = "批注"
     override val copyText = "复制"
@@ -438,6 +442,8 @@ object StringsEn : AppStrings {
     override val pageMode = "Page turning"
     override val modeScroll = "Scroll"
     override val modePaged = "Flip pages"
+    override val modeScrollDesc = "Continuous scrolling with your finger"
+    override val modePagedDesc = "Book-like pages, tap or swipe to turn"
     override val fontSize = "Text size"
     override val makeNote = "Note"
     override val copyText = "Copy"
