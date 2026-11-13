@@ -10,15 +10,15 @@ A calm, fast Android e-book reader that reads and writes **calibre libraries**, 
 
 | 书架 | 详情 | 阅读 |
 | --- | --- | --- |
-| ![书架](docs/screenshots/01-library.svg) | ![详情](docs/screenshots/02-detail.svg) | ![阅读](docs/screenshots/03-reader.svg) |
+| ![书架](docs/screenshots/01-library.png) | ![详情](docs/screenshots/02-detail.png) | ![阅读](docs/screenshots/03-reader.png) |
 
 | 本机导入 | 阅读 | 我的 |
 | --- | --- | --- |
-| ![本机导入](docs/screenshots/10-local-import.svg) | ![阅读](docs/screenshots/05-reading-now.svg) | ![我的](docs/screenshots/09-mine.svg) |
+| ![本机导入](docs/screenshots/10-local-import.png) | ![阅读](docs/screenshots/05-reading-now.png) | ![我的](docs/screenshots/09-mine.png) |
 
 | 深色主题 |
 | --- |
-| ![深色](docs/screenshots/08-library-dark.svg) |
+| ![深色](docs/screenshots/08-library-dark.png) |
 
 ## 特性
 
