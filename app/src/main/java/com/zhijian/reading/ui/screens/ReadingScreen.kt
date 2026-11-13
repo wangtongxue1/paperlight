@@ -23,7 +23,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,18 +67,22 @@ fun ReadingScreen(
     val finished = remember(vm.books, progress) {
         vm.books.filter { (progress[it.id] ?: 0f) >= 0.98f }
     }
-    // "Recently added" is capped at ten jackets so the grid stays a tidy
+    var showAllReading by mutableStateOf(false)
+    // "Recently added" is capped at nine jackets so the grid stays a tidy
     // block instead of running on forever.
     val recent = remember(vm.books) {
         vm.books.sortedByDescending { it.timestamp }
     }
     val hero = inProgress.firstOrNull()
     val featured = hero ?: recent.firstOrNull()
-    val others = remember(inProgress, hero) {
-        inProgress.filter { it.id != hero?.id }
+    // The history of books under way: three by default, more on demand.
+    val historyReading = remember(inProgress, hero, showAllReading) {
+        val list = inProgress.filter { it.id != hero?.id }
+        if (showAllReading) list else list.take(3)
     }
+    val historyHidden = inProgress.count { it.id != hero?.id } > 3
     val recentRest = remember(recent, featured) {
-        recent.filter { it.id != featured?.id }.take(10)
+        recent.filter { it.id != featured?.id }.take(9)
     }
 
     Column(
@@ -149,14 +156,20 @@ fun ReadingScreen(
                     }
                 }
 
-                if (others.isNotEmpty()) {
-                    item { SectionTitle(strings.titleReading) }
+                if (historyReading.isNotEmpty()) {
+                    item {
+                        SectionTitleWithAction(
+                            text = strings.titleReading,
+                            action = if (historyHidden && !showAllReading) strings.viewMoreHistory else null,
+                            onAction = { showAllReading = true },
+                        )
+                    }
                     item {
                         LazyRow(
                             contentPadding = PaddingValues(horizontal = 20.dp),
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                         ) {
-                            items(others, key = { it.id }) { book ->
+                            items(historyReading, key = { it.id }) { book ->
                                 MiniBook(
                                     book = book,
                                     root = vm.library.root,
@@ -228,6 +241,36 @@ private fun SectionTitle(text: String) {
         color = pal.text,
         modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 22.dp, bottom = 12.dp),
     )
+}
+
+/** Section title with an optional trailing text action, e.g. "show more". */
+@Composable
+private fun SectionTitleWithAction(text: String, action: String?, onAction: () -> Unit) {
+    val pal = palette
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(start = 20.dp, end = 12.dp, top = 22.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = text,
+            style = Type.title.copy(fontSize = 19.sp),
+            color = pal.text,
+            modifier = Modifier.weight(1f),
+        )
+        if (action != null) {
+            Text(
+                text = action,
+                style = Type.small,
+                color = pal.accent,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(Radius.md.dp))
+                    .clickable(onClick = onAction)
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+            )
+        }
+    }
 }
 
 /** The book in hand: overline, jacket, progress and the way back in. */

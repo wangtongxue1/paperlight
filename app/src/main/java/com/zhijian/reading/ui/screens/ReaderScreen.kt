@@ -40,7 +40,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -81,7 +80,6 @@ import androidx.compose.ui.zIndex
 import com.zhijian.reading.R
 import com.zhijian.reading.data.Annotation
 import com.zhijian.reading.data.Book
-import com.zhijian.reading.data.Bookmark
 import com.zhijian.reading.data.ReadingNotes
 import com.zhijian.reading.data.Settings
 import com.zhijian.reading.reader.EpubReader
@@ -167,7 +165,6 @@ fun ReaderScreen(
     var panel by remember { mutableStateOf<Panel?>(null) }
     var selection by remember { mutableStateOf<Selection?>(null) }
     var noteFor by remember { mutableStateOf<Selection?>(null) }
-    var marks by remember { mutableStateOf(notes.bookmarks(book.id)) }
     var annos by remember { mutableStateOf(notes.annotations(book.id)) }
 
     var flip by remember { mutableStateOf<FlipAnim?>(null) }
@@ -540,6 +537,32 @@ fun ReaderScreen(
                 }
             }
 
+            // ---- always-on position line: page and percent never hide -------
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .background(if (dark) pal.bgApp else pal.surface)
+                    .padding(horizontal = 16.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = if (info.mode == "paged" && info.pages > 0) {
+                        strings.pagePos(info.page, info.pages)
+                    } else {
+                        strings.chapterPos(info.chapter + 1, toc.size) + "${(info.ratio * 100).toInt()}%"
+                    },
+                    style = Type.numeric,
+                    color = pal.textTertiary,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                )
+                Text(
+                    text = "${(progress * 100).toInt()}%",
+                    style = Type.numeric,
+                    color = pal.textTertiary,
+                )
+            }
+
             // ---- progress line -----------------------------------------------
             Box(
                 Modifier
@@ -555,37 +578,13 @@ fun ReaderScreen(
                 )
             }
 
-            // ---- bottom chrome: info line + labeled nav row -------------------
+            // ---- bottom chrome: labeled nav row -------------------------------
             AnimatedVisibility(visible = chromeOn) {
                 Column(
                     Modifier
                         .fillMaxWidth()
                         .background(if (dark) pal.bgApp else pal.surface),
                 ) {
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .padding(top = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = if (info.mode == "paged" && info.pages > 0) {
-                                strings.pagePos(info.page, info.pages)
-                            } else {
-                                strings.chapterPos(info.chapter + 1, toc.size) + "${(info.ratio * 100).toInt()}%"
-                            },
-                            style = Type.numeric,
-                            color = pal.textTertiary,
-                            modifier = Modifier.weight(1f),
-                            maxLines = 1,
-                        )
-                        Text(
-                            text = "${(progress * 100).toInt()}%",
-                            style = Type.numeric,
-                            color = pal.textTertiary,
-                        )
-                    }
                     Row(
                         Modifier
                             .fillMaxWidth()
@@ -602,22 +601,6 @@ fun ReaderScreen(
                             panel = Panel.Toc
                         }
                         NavItem(
-                            R.drawable.ic_r_bookmark,
-                            strings.readerBookmarks,
-                            false,
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            val title = toc.firstOrNull { it.index == info.chapter }?.title.orEmpty()
-                            val label = buildString {
-                                if (title.isNotBlank()) append(title.take(16))
-                                if (isNotEmpty()) append(" · ")
-                                append("${(info.ratio * 100).toInt()}%")
-                            }
-                            notes.addBookmark(book.id, info.ratio, info.chapter, label)
-                            marks = notes.bookmarks(book.id)
-                            Toast.makeText(context, strings.bookmarkAdded, Toast.LENGTH_SHORT).show()
-                        }
-                        NavItem(
                             R.drawable.ic_r_annotate,
                             strings.readerAnnotations,
                             panel == Panel.Annos,
@@ -626,7 +609,7 @@ fun ReaderScreen(
                             panel = Panel.Annos
                         }
                         NavItem(
-                            R.drawable.ic_r_look,
+                            R.drawable.ic_a_gear,
                             strings.readerLook,
                             panel == Panel.Look,
                             modifier = Modifier.weight(1f),
@@ -653,21 +636,12 @@ fun ReaderScreen(
                     .padding(bottom = navBottom + 16.dp),
             ) {
                 when (which) {
-                    Panel.Toc -> TocMarksPanel(
+                    Panel.Toc -> TocPanel(
                         toc = toc,
-                        marks = marks,
                         current = info.chapter,
                         onJumpChapter = { i ->
                             runJs("window.__pl.jumpChapter($i)")
                             panel = null
-                        },
-                        onJumpBookmark = { b ->
-                            runJs("window.__pl.jumpRatio(${b.progress})")
-                            panel = null
-                        },
-                        onDeleteBookmark = { b ->
-                            notes.removeBookmark(b.id)
-                            marks = notes.bookmarks(book.id)
                         },
                     )
                     Panel.Annos -> AnnotationPanel(
@@ -801,95 +775,35 @@ private fun PillIcon(iconRes: Int, desc: String, tint: Color, onClick: () -> Uni
 }
 
 @Composable
-private fun TocMarksPanel(
+private fun TocPanel(
     toc: List<EpubReader.TocItem>,
-    marks: List<Bookmark>,
     current: Int,
     onJumpChapter: (Int) -> Unit,
-    onJumpBookmark: (Bookmark) -> Unit,
-    onDeleteBookmark: (Bookmark) -> Unit,
 ) {
     val pal = palette
     val strings = strings
-    var tab by remember { mutableStateOf(0) }
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        FilterChip(selected = tab == 0, onClick = { tab = 0 }, label = { Text(strings.readerToc) })
-        FilterChip(selected = tab == 1, onClick = { tab = 1 }, label = { Text(strings.readerBookmarks) })
+    if (toc.isEmpty()) {
+        Text(strings.noToc, style = Type.small, color = pal.textTertiary)
+        return
     }
-    Spacer(Modifier.height(12.dp))
-    if (tab == 0) {
-        if (toc.isEmpty()) {
-            Text(strings.noToc, style = Type.small, color = pal.textTertiary)
-            return
-        }
-        LazyColumn(Modifier.height(420.dp)) {
-            items(toc, key = { it.index }) { item ->
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(Radius.md.dp))
-                        .clickable { onJumpChapter(item.index) }
-                        .padding(horizontal = 10.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = item.title,
-                        style = Type.body,
-                        color = if (item.index == current) pal.accent else pal.text,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
-        }
-    } else {
-        if (marks.isEmpty()) {
-            Text(strings.noBookmarks, style = Type.small, color = pal.textTertiary)
-            return
-        }
-        LazyColumn(Modifier.height(420.dp)) {
-            items(marks, key = { it.id }) { b ->
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(Radius.md.dp))
-                        .clickable { onJumpBookmark(b) }
-                        .padding(horizontal = 10.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        painterResource(R.drawable.ic_r_bookmark),
-                        null,
-                        tint = pal.accent,
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            text = b.label.ifBlank { "${(b.progress * 100).toInt()}%" },
-                            style = Type.body,
-                            color = pal.text,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            text = formatTime(b.createdAt),
-                            style = Type.numeric,
-                            color = pal.textTertiary,
-                        )
-                    }
-                    Icon(
-                        painterResource(R.drawable.ic_r_delete),
-                        strings.delete,
-                        tint = pal.textTertiary,
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(RoundedCornerShape(19.dp))
-                            .clickable { onDeleteBookmark(b) }
-                            .padding(8.dp),
-                    )
-                }
+    LazyColumn(Modifier.height(420.dp)) {
+        items(toc, key = { it.index }) { item ->
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(Radius.md.dp))
+                    .clickable { onJumpChapter(item.index) }
+                    .padding(horizontal = 10.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = item.title,
+                    style = Type.body,
+                    color = if (item.index == current) pal.accent else pal.text,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
     }
@@ -1035,31 +949,28 @@ private fun LookPanel(fontScale: Float, paged: Boolean, onFont: (Float) -> Unit,
             selected = !paged,
             iconRes = R.drawable.ic_r_scroll,
             title = strings.modeScroll,
-            desc = strings.modeScrollDesc,
             modifier = Modifier.weight(1f),
         ) { onMode(false) }
         ModeCard(
             selected = paged,
             iconRes = R.drawable.ic_r_paged,
             title = strings.modePaged,
-            desc = strings.modePagedDesc,
             modifier = Modifier.weight(1f),
         ) { onMode(true) }
     }
 }
 
-/** A large, unmistakable choice card for the page-turning mode. */
+/** A compact choice card: icon on the left, the label right beside it. */
 @Composable
 private fun ModeCard(
     selected: Boolean,
     iconRes: Int,
     title: String,
-    desc: String,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     val pal = palette
-    Column(
+    Row(
         modifier
             .clip(RoundedCornerShape(Radius.md.dp))
             .background(if (selected) pal.accentSubtle else pal.surfaceRaised)
@@ -1069,35 +980,32 @@ private fun ModeCard(
                 shape = RoundedCornerShape(Radius.md.dp),
             )
             .clickable(onClick = onClick)
-            .padding(14.dp),
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                painterResource(iconRes),
-                null,
-                tint = if (selected) pal.accent else pal.textSecondary,
-                modifier = Modifier.size(20.dp),
-            )
-            Spacer(Modifier.weight(1f))
-            if (selected) {
-                Icon(
-                    painterResource(R.drawable.ic_r_check),
-                    null,
-                    tint = pal.accent,
-                    modifier = Modifier.size(16.dp),
-                )
-            }
-        }
-        Spacer(Modifier.height(10.dp))
-        Text(text = title, style = Type.body, color = pal.text)
-        Spacer(Modifier.height(2.dp))
+        Icon(
+            painterResource(iconRes),
+            null,
+            tint = if (selected) pal.accent else pal.textSecondary,
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(Modifier.width(10.dp))
         Text(
-            text = desc,
-            style = Type.numeric,
-            color = pal.textTertiary,
-            maxLines = 2,
+            text = title,
+            style = Type.body,
+            color = if (selected) pal.text else pal.textSecondary,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        if (selected) {
+            Icon(
+                painterResource(R.drawable.ic_r_check),
+                null,
+                tint = pal.accent,
+                modifier = Modifier.size(15.dp),
+            )
+        }
     }
 }
 

@@ -324,28 +324,48 @@ fun LibraryScreen(
             }
         }
 
-        // Filters: the four shelves, then the busiest tags.
-        val chipList = buildList {
-            add(Chip(strings.filterAll, vm.query.filter is Filter.All) { vm.setFilter(Filter.All) })
-            add(Chip(strings.titleRecent, vm.query.filter is Filter.RecentlyAdded) { vm.setFilter(Filter.RecentlyAdded) })
-            add(Chip(strings.titleReading, vm.query.filter is Filter.Reading) { vm.setFilter(Filter.Reading) })
-            add(Chip(strings.titleFavorites, vm.query.filter is Filter.Favorites) { vm.setFilter(Filter.Favorites) })
-            chips.forEach { tag ->
-                add(Chip(tag, vm.query.tagChip == tag) {
-                    vm.setTagChip(if (vm.query.tagChip == tag) null else tag)
-                })
-            }
+        // Filters: the four shelf views as one steady segmented row, the
+        // tags as a second scrolling row of their own.
+        val filterIndex = when (vm.query.filter) {
+            is Filter.RecentlyAdded -> 1
+            is Filter.Reading -> 2
+            is Filter.Favorites -> 3
+            else -> 0
         }
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            items(chipList) { chip ->
-                Pill(
-                    text = chip.label,
-                    selected = chip.selected,
-                    onClick = chip.onClick,
+        com.zhijian.reading.ui.components.SegmentRow(
+            selected = filterIndex,
+            options = listOf(strings.filterAll, strings.titleRecent, strings.titleReading, strings.titleFavorites),
+            onSelect = { i ->
+                vm.setFilter(
+                    when (i) {
+                        1 -> Filter.RecentlyAdded
+                        2 -> Filter.Reading
+                        3 -> Filter.Favorites
+                        else -> Filter.All
+                    },
                 )
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 6.dp),
+        )
+        if (chips.isNotEmpty()) {
+            val chipList = chips.map { tag ->
+                Chip(tag, vm.query.tagChip == tag) {
+                    vm.setTagChip(if (vm.query.tagChip == tag) null else tag)
+                }
+            }
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(chipList) { chip ->
+                    Pill(
+                        text = chip.label,
+                        selected = chip.selected,
+                        onClick = chip.onClick,
+                    )
+                }
             }
         }
 

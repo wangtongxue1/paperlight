@@ -65,6 +65,7 @@ interface AppStrings {
     val removeBody: String
     val cancel: String
     // ---- shelf selection ----
+    val viewMoreHistory: String
     fun selectedCount(n: Int): String
     val selectAll: String
     val deselectAll: String
@@ -102,13 +103,9 @@ interface AppStrings {
     val largerText: String
     val readerFailed: String
     val readerToc: String
-    val readerBookmarks: String
     val readerAnnotations: String
     val readerLook: String
     fun annotationCount(n: Int): String
-    val addBookmark: String
-    val bookmarkAdded: String
-    val noBookmarks: String
     val noToc: String
     val noAnnotations: String
     val pageMode: String
@@ -240,6 +237,7 @@ object StringsZh : AppStrings {
     override fun removeTitle(title: String) = "移除《$title》？"
     override val removeBody = "书籍记录与文件会一并删除，此操作无法撤销。"
     override val cancel = "取消"
+    override val viewMoreHistory = "查看更多"
     override fun selectedCount(n: Int) = "已选 $n 项"
     override val selectAll = "全选"
     override val deselectAll = "取消全选"
@@ -275,13 +273,9 @@ object StringsZh : AppStrings {
     override val largerText = "放大字号"
     override val readerFailed = "这本书无法打开"
     override val readerToc = "目录"
-    override val readerBookmarks = "书签"
     override val readerAnnotations = "批注"
     override val readerLook = "界面"
     override fun annotationCount(n: Int) = "批注 ($n)"
-    override val addBookmark = "添加书签"
-    override val bookmarkAdded = "已加书签"
-    override val noBookmarks = "还没有书签，点击底栏的书签图标即可在当前位置添加。"
     override val noToc = "这本书没有目录信息。"
     override val noAnnotations = "还没有批注。选中正文文字即可划线并写下想法。"
     override val pageMode = "翻页方式"
@@ -411,6 +405,7 @@ object StringsEn : AppStrings {
     override fun removeTitle(title: String) = "Remove “$title”?"
     override val removeBody = "The book and its files are deleted. This cannot be undone."
     override val cancel = "Cancel"
+    override val viewMoreHistory = "Show more"
     override fun selectedCount(n: Int) = if (n == 1) "1 selected" else "$n selected"
     override val selectAll = "Select All"
     override val deselectAll = "Deselect All"
@@ -446,13 +441,9 @@ object StringsEn : AppStrings {
     override val largerText = "Larger text"
     override val readerFailed = "This book could not be opened"
     override val readerToc = "Contents"
-    override val readerBookmarks = "Bookmarks"
     override val readerAnnotations = "Notes"
     override val readerLook = "Display"
     override fun annotationCount(n: Int) = "Notes ($n)"
-    override val addBookmark = "Add bookmark"
-    override val bookmarkAdded = "Bookmarked"
-    override val noBookmarks = "No bookmarks yet. Tap the bookmark icon in the bottom bar to drop one here."
     override val noToc = "This book has no table of contents."
     override val noAnnotations = "No notes yet. Select text in the book to highlight it and write a note."
     override val pageMode = "Page turning"

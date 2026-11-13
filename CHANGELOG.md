@@ -3,6 +3,22 @@
 纸间阅读 **Paperlight** —— Apple Books 风格的 Android EPUB 阅读器。
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.3.0] - 2026-11-13
+
+### 优化
+
+- **阅读页重组**：「继续阅读」只保留最新在读的一本；「正在阅读」展示历史读过的书，默认 3 本，超出后可点「查看更多」展开；「最近添加」最多展示 9 本
+- **界面面板精简**：翻页方式改为两张紧凑卡片（图标在左、名称在右，去掉描述文字），「界面」入口图标换为齿轮
+- **书架筛选重排**：全部 / 最近添加 / 正在阅读 / 我的收藏 改为固定分段控件，标签（经典、诸子…）单独成行，消除混排歧义
+
+### 移除
+
+- **书签功能**：底栏书签入口与目录面板书签页一并移除
+
+### 新增
+
+- **常驻进度行**：阅读时页数与百分比固定显示在页面底部，不再随菜单隐藏
+
 ## [1.2.0] - 2026-11-13
 
 ### 优化
@@ -48,6 +64,7 @@
 - 元数据编辑、calibre metadata.db 兼容、CJK 封面/PDF 导出
 - 内置 15 本中文公版典籍样书
 
+[1.3.0]: https://github.com/wangtongxue1/paperlight/releases/tag/v1.3.0
 [1.2.0]: https://github.com/wangtongxue1/paperlight/releases/tag/v1.2.0
 [1.1.1]: https://github.com/wangtongxue1/paperlight/releases/tag/v1.1.1
 [1.1.0]: https://github.com/wangtongxue1/paperlight/releases/tag/v1.1.0
