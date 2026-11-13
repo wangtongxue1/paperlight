@@ -180,6 +180,17 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
         reload()
     }
 
+    /** Removes several books in one pass, then reloads the shelf once. */
+    suspend fun deleteAll(books: List<Book>) {
+        withContext(Dispatchers.IO) {
+            books.forEach { book ->
+                library.delete(book)
+                settings.clearProgress(book.id)
+            }
+        }
+        reload()
+    }
+
     fun markRead(bookId: Long, progress: Float) {
         settings.markRead(bookId, progress)
         readingIds = settings.readingIds()

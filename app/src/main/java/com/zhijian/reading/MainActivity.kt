@@ -229,7 +229,7 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
                             nav.navigate("book/${book.id}")
                         },
                         onBrowse = { kind -> nav.navigate("browse/${kind.name}") },
-                        onOpenSettings = { nav.navigate("mine") },
+                        onOpenSettings = { nav.navigate("settings") },
                         onImport = { nav.navigate("localimport") },
                     )
                 }
@@ -355,7 +355,7 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
                             if (fmt != null) nav.navigate("read/${book.id}/EPUB")
                             else nav.navigate("book/${book.id}")
                         },
-                        onOpenSettings = { nav.navigate("mine") },
+                        onOpenSettings = { nav.navigate("settings") },
                     )
                 }
 
@@ -363,6 +363,18 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
                     MineScreen(
                         vm = vm,
                         onImport = { nav.navigate("localimport") },
+                    )
+                }
+
+                // Settings opened from a gear/menu entry lands here: a pushed
+                // page with its own back chevron, not a dock tab, so there is
+                // always an obvious way out of it.
+                composable("settings") {
+                    MineScreen(
+                        vm = vm,
+                        onImport = { nav.navigate("localimport") },
+                        showBack = true,
+                        onBack = { nav.popBackStack() },
                     )
                 }
             }

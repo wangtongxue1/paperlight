@@ -63,6 +63,8 @@ import kotlinx.coroutines.launch
 fun MineScreen(
     vm: LibraryViewModel,
     onImport: () -> Unit,
+    showBack: Boolean = false,
+    onBack: () -> Unit = {},
 ) {
     val pal = palette
     val strings = strings
@@ -73,6 +75,32 @@ fun MineScreen(
             .background(pal.bgApp),
     ) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 14.dp)) {
+            if (showBack) {
+                // Opened as a pushed page (from a settings entry): give it an
+                // explicit way out, a tap on the chevron goes back.
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(Radius.md.dp))
+                            .background(pal.surface, RoundedCornerShape(Radius.md.dp))
+                            .clickable { onBack() },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_r_back),
+                            null,
+                            tint = pal.icon,
+                            modifier = Modifier.size(17.dp),
+                        )
+                    }
+                }
+            }
             Text(strings.navMine, style = Type.display.copy(fontSize = 28.sp), color = pal.text)
         }
 
@@ -192,7 +220,7 @@ fun MineScreen(
             Column(Modifier.padding(horizontal = 20.dp)) {
                 Overline(strings.about)
                 Spacer(Modifier.height(10.dp))
-                InfoLine(strings.appName, strings.version + " 0.2.0")
+                InfoLine(strings.appName, strings.version + " 1.1.1")
                 Spacer(Modifier.height(8.dp))
                 Text(strings.aboutBody, style = Type.small, color = pal.textSecondary)
             }

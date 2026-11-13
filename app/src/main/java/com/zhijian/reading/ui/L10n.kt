@@ -64,6 +64,12 @@ interface AppStrings {
     fun removeTitle(title: String): String
     val removeBody: String
     val cancel: String
+    // ---- shelf selection ----
+    fun selectedCount(n: Int): String
+    val selectAll: String
+    val deselectAll: String
+    fun deleteBooksTitle(n: Int): String
+    val deleteBooksBody: String
     val accept: String
     val read: String
     val formats: String
@@ -234,6 +240,11 @@ object StringsZh : AppStrings {
     override fun removeTitle(title: String) = "移除《$title》？"
     override val removeBody = "书籍记录与文件会一并删除，此操作无法撤销。"
     override val cancel = "取消"
+    override fun selectedCount(n: Int) = "已选 $n 项"
+    override val selectAll = "全选"
+    override val deselectAll = "取消全选"
+    override fun deleteBooksTitle(n: Int) = "删除 $n 本书？"
+    override val deleteBooksBody = "所选书籍的记录与文件会一并删除，此操作无法撤销。"
     override val accept = "确定"
     override val read = "开始阅读"
     override val formats = "文件"
@@ -400,6 +411,11 @@ object StringsEn : AppStrings {
     override fun removeTitle(title: String) = "Remove “$title”?"
     override val removeBody = "The book and its files are deleted. This cannot be undone."
     override val cancel = "Cancel"
+    override fun selectedCount(n: Int) = if (n == 1) "1 selected" else "$n selected"
+    override val selectAll = "Select All"
+    override val deselectAll = "Deselect All"
+    override fun deleteBooksTitle(n: Int) = if (n == 1) "Delete 1 book?" else "Delete $n books?"
+    override val deleteBooksBody = "The selected books and their files are deleted. This cannot be undone."
     override val accept = "Accept"
     override val read = "Read"
     override val formats = "Formats"

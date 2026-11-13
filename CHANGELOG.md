@@ -3,6 +3,16 @@
 纸间阅读 **Paperlight** —— Apple Books 风格的 Android EPUB 阅读器。
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.1.1] - 2026-11-13
+
+### 修复
+
+- 从书架菜单进入「设置」后无法返回：设置页现在带左上角返回按钮，且不再显示底部 Dock，进出路径清晰
+
+### 新增
+
+- **书架多选批量删除**：长按封面或列表条目进入多选模式，点选/全选/取消全选，右上角删除并二次确认；封面与列表两种视图均支持
+
 ## [1.1.0] - 2026-11-13
 
 ### 新增
@@ -31,5 +41,6 @@
 - 元数据编辑、calibre metadata.db 兼容、CJK 封面/PDF 导出
 - 内置 15 本中文公版典籍样书
 
+[1.1.1]: https://github.com/wangtongxue1/paperlight/releases/tag/v1.1.1
 [1.1.0]: https://github.com/wangtongxue1/paperlight/releases/tag/v1.1.0
 [1.0.0]: https://github.com/wangtongxue1/paperlight/releases/tag/v1.0.0

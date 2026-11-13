@@ -1,6 +1,7 @@
 package com.zhijian.reading.ui.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -43,6 +45,8 @@ fun ShelfGrid(
     selectedId: Long?,
     onSelect: (Book) -> Unit,
     onLongPress: (Book) -> Unit,
+    selectionMode: Boolean = false,
+    selectedIds: Set<Long> = emptySet(),
     modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(modifier) {
@@ -67,6 +71,8 @@ fun ShelfGrid(
                     selected = book.id == selectedId,
                     onSelect = { onSelect(book) },
                     onLongPress = { onLongPress(book) },
+                    selectionMode = selectionMode,
+                    isSelected = book.id in selectedIds,
                 )
             }
         }
@@ -84,6 +90,8 @@ private fun CoverSlot(
     selected: Boolean,
     onSelect: () -> Unit,
     onLongPress: () -> Unit,
+    selectionMode: Boolean = false,
+    isSelected: Boolean = false,
 ) {
     val pal = palette
     Column(
@@ -100,12 +108,38 @@ private fun CoverSlot(
                 width = coverW,
                 height = coverH,
                 shadow = true,
-                modifier = if (selected) {
+                modifier = if (selected && !selectionMode) {
                     Modifier
                         .clip(CoverShape)
                         .border(2.dp, pal.accent, CoverShape)
                 } else Modifier,
             )
+            if (selectionMode) {
+                // The round pick badge, the way Apple Books marks covers.
+                Box(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .size(22.dp)
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(if (isSelected) pal.accent else androidx.compose.ui.graphics.Color.White.copy(alpha = 0.88f))
+                        .border(
+                            1.5.dp,
+                            if (isSelected) androidx.compose.ui.graphics.Color.Transparent else pal.textTertiary,
+                            androidx.compose.foundation.shape.CircleShape,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (isSelected) {
+                        androidx.compose.material3.Icon(
+                            androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_r_check),
+                            null,
+                            tint = androidx.compose.ui.graphics.Color.White,
+                            modifier = Modifier.size(13.dp),
+                        )
+                    }
+                }
+            }
         }
         Spacer(Modifier.height(10.dp))
         Text(

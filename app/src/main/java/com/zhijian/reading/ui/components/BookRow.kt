@@ -2,6 +2,7 @@ package com.zhijian.reading.ui.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -36,6 +38,8 @@ fun BookRow(
     root: File,
     selected: Boolean = false,
     progress: Float = 0f,
+    selectionMode: Boolean = false,
+    isSelected: Boolean = false,
     onClick: () -> Unit,
     onLongClick: () -> Unit = {},
 ) {
@@ -43,7 +47,13 @@ fun BookRow(
     Row(
         Modifier
             .fillMaxWidth()
-            .background(if (selected) pal.selected else androidx.compose.ui.graphics.Color.Transparent)
+            .background(
+                when {
+                    selectionMode && isSelected -> pal.selected
+                    selected -> pal.selected
+                    else -> androidx.compose.ui.graphics.Color.Transparent
+                },
+            )
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -94,6 +104,30 @@ fun BookRow(
             }
         }
         Spacer(Modifier.width(10.dp))
+        if (selectionMode) {
+            // The round pick badge replaces the format column while selecting.
+            Box(
+                Modifier
+                    .size(22.dp)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
+                    .background(if (isSelected) pal.accent else androidx.compose.ui.graphics.Color.White.copy(alpha = 0.88f))
+                    .border(
+                        1.5.dp,
+                        if (isSelected) androidx.compose.ui.graphics.Color.Transparent else pal.textTertiary,
+                        androidx.compose.foundation.shape.CircleShape,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (isSelected) {
+                    androidx.compose.material3.Icon(
+                        androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_r_check),
+                        null,
+                        tint = androidx.compose.ui.graphics.Color.White,
+                        modifier = Modifier.size(13.dp),
+                    )
+                }
+            }
+        } else {
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                 book.formats.take(2).forEach { FormatBadge(it.format) }
@@ -105,6 +139,7 @@ fun BookRow(
                     color = pal.textTertiary,
                 )
             }
+        }
         }
     }
 }

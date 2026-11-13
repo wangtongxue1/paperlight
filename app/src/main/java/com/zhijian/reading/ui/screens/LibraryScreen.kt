@@ -27,10 +27,12 @@ import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Sort
 import androidx.compose.material.icons.outlined.ViewList
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,6 +58,7 @@ import com.zhijian.reading.ui.strings
 import com.zhijian.reading.ui.theme.Radius
 import com.zhijian.reading.ui.theme.Type
 import com.zhijian.reading.ui.theme.palette
+import kotlinx.coroutines.launch
 
 /** The counted lists the browse pages show. */
 enum class BrowseKind { Authors, Series, Tags, Publishers }
@@ -77,11 +80,31 @@ fun LibraryScreen(
     val counts = remember(vm.books, vm.readingIds) { vm.counts() }
     val chips = remember(vm.books) { vm.chips() }
 
+    // Long-press selection: pick covers one by one, then remove them in bulk.
+    var selecting by remember { mutableStateOf(false) }
+    var selectedIds by remember { mutableStateOf(setOf<Long>()) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+
+    fun toggle(id: Long) {
+        selectedIds = if (id in selectedIds) selectedIds - id else selectedIds + id
+    }
+
+    fun enterSelection(book: Book) {
+        if (!selecting) {
+            selecting = true
+            selectedIds = setOf(book.id)
+        }
+    }
+
+    val allShownSelected = shown.isNotEmpty() && selectedIds.containsAll(shown.map { it.id })
+
     Column(
         Modifier
             .fillMaxSize()
             .background(pal.bgApp),
     ) {
+        if (!selecting) {
         // The large title bar, the Apple Books way.
         Row(
             Modifier
@@ -180,6 +203,64 @@ fun LibraryScreen(
                 }
             }
         }
+        } else {
+            // Selection mode replaces the title bar: exit, count, select
+            // all, and the delete action.
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 12.dp, top = 14.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(Radius.md.dp))
+                        .clickable {
+                            selecting = false
+                            selectedIds = emptySet()
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Outlined.Close, null, tint = pal.icon, modifier = Modifier.size(21.dp))
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = strings.selectedCount(selectedIds.size),
+                        style = Type.display.copy(fontSize = 24.sp),
+                        color = pal.text,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = if (allShownSelected) strings.deselectAll else strings.selectAll,
+                        style = Type.small,
+                        color = pal.accent,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(Radius.md.dp))
+                            .clickable {
+                                selectedIds = if (allShownSelected) emptySet() else shown.map { it.id }.toSet()
+                            }
+                            .padding(vertical = 2.dp),
+                    )
+                }
+                Box(
+                    Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(Radius.md.dp))
+                        .clickable(enabled = selectedIds.isNotEmpty()) { confirmDelete = true },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_r_delete),
+                        null,
+                        tint = if (selectedIds.isEmpty()) pal.iconMuted else pal.danger,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+        }
 
         if (searching) {
             Row(
@@ -262,8 +343,12 @@ fun LibraryScreen(
                 books = shown,
                 root = vm.library.root,
                 selectedId = lastOpened,
-                onSelect = onOpenBook,
-                onLongPress = onOpenBook,
+                onSelect = { book ->
+                    if (selecting) toggle(book.id) else onOpenBook(book)
+                },
+                onLongPress = { book -> enterSelection(book) },
+                selectionMode = selecting,
+                selectedIds = selectedIds,
                 modifier = Modifier.fillMaxSize(),
             )
 
@@ -274,12 +359,41 @@ fun LibraryScreen(
                         root = vm.library.root,
                         selected = book.id == lastOpened,
                         progress = vm.progress[book.id] ?: 0f,
-                        onClick = { onOpenBook(book) },
+                        selectionMode = selecting,
+                        isSelected = book.id in selectedIds,
+                        onClick = { if (selecting) toggle(book.id) else onOpenBook(book) },
+                        onLongClick = { enterSelection(book) },
                     )
                 }
                 item { Spacer(Modifier.height(120.dp)) }
             }
         }
+    }
+
+    if (confirmDelete) {
+        val toDelete = vm.books.filter { it.id in selectedIds }
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            containerColor = pal.surfaceRaised,
+            titleContentColor = pal.text,
+            textContentColor = pal.textSecondary,
+            title = { Text(strings.deleteBooksTitle(toDelete.size)) },
+            text = { Text(strings.deleteBooksBody) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDelete = false
+                    val doomed = toDelete
+                    selecting = false
+                    selectedIds = emptySet()
+                    scope.launch { vm.deleteAll(doomed) }
+                }) { Text(strings.remove, color = pal.danger) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) {
+                    Text(strings.cancel, color = pal.textSecondary)
+                }
+            },
+        )
     }
 }
 
