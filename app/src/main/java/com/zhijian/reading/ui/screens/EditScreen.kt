@@ -21,9 +21,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -89,7 +86,7 @@ fun EditScreen(
                     .clickable(onClick = onBack),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Outlined.ArrowBack, "Back", tint = pal.icon, modifier = Modifier.size(21.dp))
+                Icon(androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_r_back), "Back", tint = pal.icon, modifier = Modifier.size(21.dp))
             }
             Text(
                 text = strings.editMetadata,
@@ -191,7 +188,7 @@ fun EditScreen(
                                     .clickable { tags = tags - tag },
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Icon(Icons.Outlined.Close, "Remove", tint = pal.iconMuted, modifier = Modifier.size(13.dp))
+                                Icon(androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_r_close), "Remove", tint = pal.iconMuted, modifier = Modifier.size(13.dp))
                             }
                         }
                     }

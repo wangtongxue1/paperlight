@@ -26,13 +26,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.LibraryBooks
-import androidx.compose.material.icons.filled.MenuBook
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.outlined.LibraryBooks
-import androidx.compose.material.icons.outlined.MenuBook
-import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -47,7 +40,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -134,8 +126,8 @@ class MainActivity : ComponentActivity() {
 
 private class Tab(
     val route: String,
-    val icon: ImageVector,
-    val iconSel: ImageVector,
+    val icon: Int,
+    val iconSel: Int,
     val label: String,
 )
 
@@ -157,9 +149,9 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
 
     val tabs = remember(strings) {
         listOf(
-            Tab("reading", Icons.Outlined.MenuBook, Icons.Filled.MenuBook, strings.navReading),
-            Tab("library", Icons.Outlined.LibraryBooks, Icons.Filled.LibraryBooks, strings.navLibrary),
-            Tab("mine", Icons.Outlined.Person, Icons.Filled.Person, strings.navMine),
+            Tab("reading", R.drawable.ic_a_book, R.drawable.ic_a_book_fill, strings.navReading),
+            Tab("library", R.drawable.ic_a_shelf, R.drawable.ic_a_shelf_fill, strings.navLibrary),
+            Tab("mine", R.drawable.ic_a_person, R.drawable.ic_a_person_fill, strings.navMine),
         )
     }
     val onTab = tabs.any { it.route == route }
@@ -413,7 +405,7 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
                         verticalArrangement = Arrangement.Center,
                     ) {
                         Icon(
-                            if (selected) tab.iconSel else tab.icon,
+                            androidx.compose.ui.res.painterResource(if (selected) tab.iconSel else tab.icon),
                             contentDescription = tab.label,
                             modifier = Modifier.size(23.dp),
                             tint = if (selected) pal.accent else pal.iconMuted,

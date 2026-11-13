@@ -131,8 +131,8 @@ private data class Selection(
     val cxD: Float = -1f,
 )
 
-/** A frozen shot of the page flying away during a flip. */
-private data class FlipAnim(val bitmap: ImageBitmap, val forward: Boolean)
+/** A page of the book frozen mid-turn: front face, and its paper back. */
+private data class FlipAnim(val front: ImageBitmap, val forward: Boolean)
 
 /** Reads an EPUB: the spine in one scroll, with where you stopped kept. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -171,6 +171,7 @@ fun ReaderScreen(
     var annos by remember { mutableStateOf(notes.annotations(book.id)) }
 
     var flip by remember { mutableStateOf<FlipAnim?>(null) }
+    var flipBack by remember { mutableStateOf<ImageBitmap?>(null) }
     val flipAnim = remember { Animatable(0f) }
 
     val ui = remember { Handler(Looper.getMainLooper()) }
@@ -224,7 +225,7 @@ fun ReaderScreen(
         b.asImageBitmap()
     }.getOrNull()
 
-    /** Freezes the current page, turns the engine, then flies the shot off like a leaf. */
+    /** Freezes the current page, turns the engine, then peels the sheet off like paper. */
     fun flipPage(forward: Boolean) {
         if (flip != null || info.pages <= 0) return
         val bmp = capturePage() ?: return
@@ -235,9 +236,11 @@ fun ReaderScreen(
     LaunchedEffect(flip) {
         val f = flip ?: return@LaunchedEffect
         delay(90) // let the engine land on the new page and paint it
+        flipBack = capturePage() // what the sheet's back side shows once past 90°
         flipAnim.snapTo(0f)
-        flipAnim.animateTo(1f, tween(durationMillis = 300, easing = FastOutSlowInEasing))
+        flipAnim.animateTo(1f, tween(durationMillis = 380, easing = FastOutSlowInEasing))
         flip = null
+        flipBack = null
     }
 
     fun onBridge(type: String, data: String) {
@@ -433,49 +436,61 @@ fun ReaderScreen(
                     modifier = Modifier.fillMaxSize(),
                 )
 
-                // The previous page flying away while a flip plays out.
+                // A page peeling around its spine while a flip plays out:
+                // the first half shows the page being left lifting off, past
+                // 90° the sheet turns over and the new page (printed on the
+                // back, counter-mirrored so it reads upright) unfolds flat.
                 flip?.let { f ->
-                    val dir = if (f.forward) -1f else 1f
+                    val t = flipAnim.value
+                    val angle = -180f * t
+                    val showFront = t <= 0.5f
+                    val sheet = if (showFront) f.front else flipBack
+                    val shade = 0.22f * kotlin.math.sin(t * Math.PI).toFloat()
                     Box(
                         Modifier
                             .fillMaxSize()
                             .zIndex(1f)
-                            .graphicsLayer { translationX = dir * flipAnim.value * webView.width },
+                            .graphicsLayer {
+                                cameraDistance = size.width * 2.4f
+                                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0.5f)
+                                rotationY = angle
+                            },
                     ) {
-                        Row(Modifier.fillMaxSize()) {
-                            if (!f.forward) {
-                                Box(
-                                    Modifier
-                                        .width(22.dp)
-                                        .fillMaxHeight()
-                                        .background(
-                                            Brush.horizontalGradient(
-                                                0f to Color.Black.copy(alpha = 0.30f),
-                                                1f to Color.Transparent,
-                                            ),
-                                        ),
-                                )
-                            }
+                        if (sheet != null) {
                             Image(
-                                bitmap = f.bitmap,
+                                bitmap = sheet,
                                 contentDescription = null,
                                 contentScale = ContentScale.FillBounds,
-                                modifier = Modifier.weight(1f).fillMaxHeight(),
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .graphicsLayer {
+                                        // Seen from behind, the sheet would
+                                        // mirror; flip the print back upright.
+                                        scaleX = if (showFront) 1f else -1f
+                                    },
                             )
-                            if (f.forward) {
-                                Box(
-                                    Modifier
-                                        .width(22.dp)
-                                        .fillMaxHeight()
-                                        .background(
-                                            Brush.horizontalGradient(
-                                                0f to Color.Transparent,
-                                                1f to Color.Black.copy(alpha = 0.30f),
-                                            ),
-                                        ),
-                                )
-                            }
+                        } else {
+                            // The paper back of the page — no mirrored text.
+                            Box(
+                                Modifier
+                                    .fillMaxSize()
+                                    .background(if (dark) pal.bgApp else pal.surface),
+                            )
                         }
+                        // Light falls off as the sheet turns away from the eye.
+                        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = shade)))
+                        // A soft shadow hugging the spine edge.
+                        Box(
+                            Modifier
+                                .fillMaxHeight()
+                                .width(26.dp)
+                                .background(
+                                    Brush.horizontalGradient(
+                                        0f to Color.Black.copy(alpha = shade * 0.9f),
+                                        1f to Color.Transparent,
+                                    ),
+                                ),
+                        )
                     }
                 }
 

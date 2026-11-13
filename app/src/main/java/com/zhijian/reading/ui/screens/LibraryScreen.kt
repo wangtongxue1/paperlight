@@ -19,14 +19,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.GridView
-import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.Sort
-import androidx.compose.material.icons.outlined.ViewList
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -134,7 +126,10 @@ fun LibraryScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    if (searching) Icons.Outlined.Close else Icons.Outlined.Search,
+                    androidx.compose.ui.res.painterResource(
+                        if (searching) com.zhijian.reading.R.drawable.ic_r_close
+                        else com.zhijian.reading.R.drawable.ic_a_search,
+                    ),
                     null,
                     tint = pal.icon,
                     modifier = Modifier.size(21.dp),
@@ -147,10 +142,23 @@ fun LibraryScreen(
                     .clickable { menu = true },
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Outlined.MoreVert, null, tint = pal.icon, modifier = Modifier.size(21.dp))
+                Icon(
+                    androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_a_more),
+                    null,
+                    tint = pal.icon,
+                    modifier = Modifier.size(21.dp),
+                )
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(
-                        leadingIcon = { Icon(if (vm.viewMode == 0) Icons.Outlined.ViewList else Icons.Outlined.GridView, null) },
+                        leadingIcon = {
+                            Icon(
+                                androidx.compose.ui.res.painterResource(
+                                    if (vm.viewMode == 0) com.zhijian.reading.R.drawable.ic_a_list
+                                    else com.zhijian.reading.R.drawable.ic_a_grid,
+                                ),
+                                null,
+                            )
+                        },
                         text = { Text(if (vm.viewMode == 0) strings.viewList else strings.viewShelf) },
                         onClick = {
                             vm.chooseViewMode(if (vm.viewMode == 0) 1 else 0)
@@ -158,7 +166,9 @@ fun LibraryScreen(
                         },
                     )
                     DropdownMenuItem(
-                        leadingIcon = { Icon(Icons.Outlined.Sort, null) },
+                        leadingIcon = {
+                            Icon(androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_a_sort), null)
+                        },
                         text = { Text(strings.sortBy + " · " + sortLabel(strings, vm.query.sort)) },
                         onClick = {
                             val keys = SortKey.entries
@@ -168,7 +178,9 @@ fun LibraryScreen(
                         },
                     )
                     DropdownMenuItem(
-                        leadingIcon = { Icon(Icons.Outlined.Sort, null) },
+                        leadingIcon = {
+                            Icon(androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_a_sort), null)
+                        },
                         text = { Text(if (vm.query.descending) strings.sortDesc else strings.sortAsc) },
                         onClick = {
                             vm.toggleSortDirection()
@@ -192,7 +204,9 @@ fun LibraryScreen(
                         onClick = { menu = false; onBrowse(BrowseKind.Publishers) },
                     )
                     DropdownMenuItem(
-                        leadingIcon = { Icon(Icons.Outlined.Add, null) },
+                        leadingIcon = {
+                            Icon(androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_a_add), null)
+                        },
                         text = { Text(strings.addBooks) },
                         onClick = { menu = false; onImport() },
                     )
@@ -222,7 +236,12 @@ fun LibraryScreen(
                         },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Outlined.Close, null, tint = pal.icon, modifier = Modifier.size(21.dp))
+                    Icon(
+                        androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_r_close),
+                        null,
+                        tint = pal.icon,
+                        modifier = Modifier.size(21.dp),
+                    )
                 }
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
@@ -272,7 +291,12 @@ fun LibraryScreen(
                     .padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Outlined.Search, null, tint = pal.iconMuted, modifier = Modifier.size(17.dp))
+                Icon(
+                    androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_a_search),
+                    null,
+                    tint = pal.iconMuted,
+                    modifier = Modifier.size(17.dp),
+                )
                 Spacer(Modifier.width(8.dp))
                 Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                     if (vm.query.text.isEmpty()) {
@@ -289,7 +313,7 @@ fun LibraryScreen(
                 }
                 if (vm.query.text.isNotEmpty()) {
                     Icon(
-                        Icons.Outlined.Close,
+                        androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_r_close),
                         strings.closeSearch,
                         tint = pal.iconMuted,
                         modifier = Modifier
@@ -330,7 +354,12 @@ fun LibraryScreen(
                 title = strings.emptyNoBooks,
                 body = strings.emptyNoBooksBody,
                 icon = {
-                    Icon(Icons.Outlined.Add, null, tint = pal.iconMuted, modifier = Modifier.size(20.dp))
+                    Icon(
+                        androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_a_add),
+                        null,
+                        tint = pal.iconMuted,
+                        modifier = Modifier.size(20.dp),
+                    )
                 },
             )
 

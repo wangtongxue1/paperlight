@@ -19,14 +19,6 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Image
-import androidx.compose.material.icons.outlined.MoreHoriz
-import androidx.compose.material.icons.outlined.OpenInNew
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -39,7 +31,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -100,7 +91,10 @@ fun DetailScreen(
                     .clickable(onClick = onBack),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Outlined.ArrowBack, "Back", tint = pal.icon, modifier = Modifier.size(21.dp))
+                Icon(
+                    androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_r_back),
+                    "Back", tint = pal.icon, modifier = Modifier.size(21.dp),
+                )
             }
             Text(
                 text = strings.navLibrary,
@@ -116,19 +110,22 @@ fun DetailScreen(
                         .clickable { menu = true },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Outlined.MoreHoriz, "More", tint = pal.icon, modifier = Modifier.size(21.dp))
+                    Icon(
+                        androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_a_dots),
+                        "More", tint = pal.icon, modifier = Modifier.size(21.dp),
+                    )
                 }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(
-                        text = { DetailMenuRow(strings.editMetadata, Icons.Outlined.Edit) },
+                        text = { DetailMenuRow(strings.editMetadata, com.zhijian.reading.R.drawable.ic_a_edit) },
                         onClick = { menu = false; onEdit() },
                     )
                     DropdownMenuItem(
-                        text = { DetailMenuRow(strings.changeCover, Icons.Outlined.Image) },
+                        text = { DetailMenuRow(strings.changeCover, com.zhijian.reading.R.drawable.ic_a_image) },
                         onClick = { menu = false; onPickCover() },
                     )
                     DropdownMenuItem(
-                        text = { DetailMenuRow(strings.remove, Icons.Outlined.Delete, danger = true) },
+                        text = { DetailMenuRow(strings.remove, com.zhijian.reading.R.drawable.ic_r_delete, danger = true) },
                         onClick = { menu = false; onDelete() },
                     )
                 }
@@ -205,7 +202,7 @@ fun DetailScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(
-                            Icons.Outlined.OpenInNew, null,
+                            androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_a_open), null,
                             tint = pal.textOnAccent, modifier = Modifier.size(17.dp),
                         )
                         Spacer(Modifier.width(8.dp))
@@ -346,7 +343,10 @@ fun DetailScreen(
                         .padding(horizontal = 6.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Outlined.Add, null, tint = pal.textAccent, modifier = Modifier.size(14.dp))
+                    Icon(
+                        androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_a_add),
+                        null, tint = pal.textAccent, modifier = Modifier.size(14.dp),
+                    )
                     Spacer(Modifier.width(6.dp))
                     Text(strings.editMetadata, style = Type.smallStrong, color = pal.textAccent)
                 }
@@ -371,11 +371,11 @@ fun DetailScreen(
 }
 
 @Composable
-private fun DetailMenuRow(label: String, icon: ImageVector, danger: Boolean = false) {
+private fun DetailMenuRow(label: String, iconRes: Int, danger: Boolean = false) {
     val pal = palette
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
-            icon, null,
+            androidx.compose.ui.res.painterResource(iconRes), null,
             tint = if (danger) pal.danger else pal.icon,
             modifier = Modifier.size(17.dp),
         )

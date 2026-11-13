@@ -25,13 +25,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.CreateNewFolder
-import androidx.compose.material.icons.outlined.Description
-import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -173,7 +166,7 @@ fun LocalImportScreen(
                     .clickable(onClick = onBack),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Outlined.ArrowBack, "Back", tint = pal.icon, modifier = Modifier.size(21.dp))
+                Icon(androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_r_back), "Back", tint = pal.icon, modifier = Modifier.size(21.dp))
             }
             Column(Modifier.weight(1f)) {
                 Text(strings.localImportTitle, style = Type.title.copy(fontSize = 18.sp), color = pal.text)
@@ -213,7 +206,7 @@ fun LocalImportScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        Icons.Outlined.FolderOpen,
+                        androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_a_folder_open),
                         null,
                         tint = pal.accent,
                         modifier = Modifier.size(34.dp),
@@ -279,7 +272,7 @@ fun LocalImportScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
-                    Icons.Outlined.Folder,
+                    androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_a_folder),
                     null,
                     tint = pal.iconMuted,
                     modifier = Modifier.size(15.dp),
@@ -308,7 +301,7 @@ fun LocalImportScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Icon(
-                            Icons.Outlined.CreateNewFolder,
+                            androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_a_folder_new),
                             null,
                             tint = pal.iconMuted,
                             modifier = Modifier.size(32.dp),
@@ -410,7 +403,8 @@ private fun EntryRow(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                if (entry.isDir) Icons.Outlined.Folder else Icons.Outlined.Description,
+                if (entry.isDir) androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_a_folder)
+                        else androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_a_file),
                 null,
                 tint = if (entry.isDir) pal.iconMuted else pal.icon,
                 modifier = Modifier.size(19.dp),
@@ -441,7 +435,7 @@ private fun EntryRow(
             ) {
                 if (checked) {
                     Icon(
-                        Icons.Outlined.Check,
+                        androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_r_check),
                         null,
                         tint = pal.textOnAccent,
                         modifier = Modifier.size(14.dp),

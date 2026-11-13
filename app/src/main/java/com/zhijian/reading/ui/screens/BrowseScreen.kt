@@ -12,9 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -77,7 +74,7 @@ fun BrowseScreen(
                     .clickable(onClick = onBack),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Outlined.ArrowBack, "Back", tint = pal.icon, modifier = Modifier.size(21.dp))
+                Icon(androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_r_back), "Back", tint = pal.icon, modifier = Modifier.size(21.dp))
             }
             Column(Modifier.weight(1f)) {
                 Text(kindLabel, style = Type.title.copy(fontSize = 20.sp), color = pal.text)
@@ -89,7 +86,7 @@ fun BrowseScreen(
             EmptyState(
                 title = strings.nothingFound,
                 body = strings.nothingFoundBody(kindLabel),
-                icon = { Icon(Icons.Outlined.Search, null, tint = pal.iconMuted, modifier = Modifier.size(20.dp)) },
+                icon = { Icon(androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_a_search), null, tint = pal.iconMuted, modifier = Modifier.size(20.dp)) },
             )
         } else {
             LazyColumn(Modifier.fillMaxSize()) {

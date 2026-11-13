@@ -20,8 +20,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -110,7 +108,7 @@ fun ReadingScreen(
                     .clickable(onClick = onOpenSettings),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Outlined.Settings, null, tint = pal.icon, modifier = Modifier.size(21.dp))
+                Icon(androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_a_gear), null, tint = pal.icon, modifier = Modifier.size(21.dp))
             }
         }
 

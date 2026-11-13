@@ -18,13 +18,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.material.icons.outlined.ArrowForward
-import androidx.compose.material.icons.outlined.ExpandLess
-import androidx.compose.material.icons.outlined.ExpandMore
-import androidx.compose.material.icons.outlined.FileOpen
-import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
@@ -128,7 +122,10 @@ fun MineScreen(
                 Text(strings.getBooksTitle, style = Type.title.copy(fontSize = 17.sp), color = pal.text)
                 Spacer(Modifier.weight(1f))
                 Icon(
-                    if (importOpen) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                    androidx.compose.ui.res.painterResource(
+                        if (importOpen) com.zhijian.reading.R.drawable.ic_a_chevron_up
+                        else com.zhijian.reading.R.drawable.ic_a_chevron_down,
+                    ),
                     null,
                     tint = pal.icon,
                     modifier = Modifier.size(20.dp),
@@ -138,7 +135,7 @@ fun MineScreen(
                 Column {
                     LinkImportCard(vm)
                     ActionRow(
-                        icon = { Icon(Icons.Outlined.FileOpen, null, tint = pal.accent, modifier = Modifier.size(19.dp)) },
+                        icon = { Icon(androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_a_import), null, tint = pal.accent, modifier = Modifier.size(19.dp)) },
                         tintAccent = true,
                         title = strings.importFromDevice,
                         note = strings.localImportNoPerm,
@@ -220,7 +217,7 @@ fun MineScreen(
             Column(Modifier.padding(horizontal = 20.dp)) {
                 Overline(strings.about)
                 Spacer(Modifier.height(10.dp))
-                InfoLine(strings.appName, strings.version + " 1.1.1")
+                InfoLine(strings.appName, strings.version + " 1.2.0")
                 Spacer(Modifier.height(8.dp))
                 Text(strings.aboutBody, style = Type.small, color = pal.textSecondary)
             }
@@ -298,7 +295,7 @@ private fun ActionRow(
             Text(title, style = Type.bodyStrong, color = pal.text)
             Text(note, style = Type.small, color = pal.textTertiary)
         }
-        Icon(Icons.Outlined.ArrowForward, null, tint = pal.iconMuted, modifier = Modifier.size(18.dp))
+        Icon(androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_a_chevron_right), null, tint = pal.iconMuted, modifier = Modifier.size(18.dp))
     }
 }
 
@@ -336,7 +333,7 @@ private fun LinkImportCard(vm: LibraryViewModel) {
                 .padding(start = 12.dp, end = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Outlined.Link, null, tint = pal.accent, modifier = Modifier.size(17.dp))
+            Icon(androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_a_link), null, tint = pal.accent, modifier = Modifier.size(17.dp))
             Spacer(Modifier.width(9.dp))
             Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                 if (url.isEmpty()) {
