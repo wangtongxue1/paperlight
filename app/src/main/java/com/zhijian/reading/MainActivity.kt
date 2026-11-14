@@ -72,6 +72,7 @@ import com.zhijian.reading.ui.screens.EditScreen
 import com.zhijian.reading.ui.screens.LibraryScreen
 import com.zhijian.reading.ui.screens.LocalImportScreen
 import com.zhijian.reading.ui.screens.MineScreen
+import com.zhijian.reading.ui.screens.PdfReaderScreen
 import com.zhijian.reading.ui.screens.ReadingScreen
 import com.zhijian.reading.ui.screens.ReaderScreen
 import com.zhijian.reading.ui.theme.AppTheme
@@ -174,8 +175,13 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
     }
 
     fun openFormat(book: Book, format: String) {
-        when (format.uppercase()) {
-            "EPUB" -> nav.navigate("read/${book.id}/EPUB")
+        val f = format.uppercase()
+        val supported = com.zhijian.reading.reader.BookDecoder.SUPPORTED
+        when {
+            // Formats read in-app. Everything else falls back to another
+            // app, with a plain word when none is installed.
+            f == "PDF" -> nav.navigate("pdf/${book.id}")
+            f in supported -> nav.navigate("read/${book.id}/$f")
             else -> {
                 val file = vm.fileOf(book, format)
                 if (file == null) {
@@ -184,8 +190,7 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
                 }
                 val opened = runCatching {
                     val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
-                    val mime = when (format.uppercase()) {
-                        "PDF" -> "application/pdf"
+                    val mime = when (f) {
                         "MOBI" -> "application/x-mobipocket-ebook"
                         "AZW3", "AZW" -> "application/vnd.amazon.ebook"
                         "TXT" -> "text/plain"
@@ -304,6 +309,28 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
                         ReaderScreen(
                             book = book,
                             file = file,
+                            format = format,
+                            dark = dark,
+                            initialProgress = vm.progress[book.id] ?: 0f,
+                            onProgress = { vm.markRead(book.id, it) },
+                            onBack = { nav.popBackStack() },
+                        )
+                    }
+                }
+
+                composable(
+                    "pdf/{id}",
+                    arguments = listOf(navArgument("id") { type = NavType.LongType }),
+                ) { entry ->
+                    val id = entry.arguments?.getLong("id") ?: -1L
+                    val book = vm.byId(id)
+                    val file = book?.let { vm.fileOf(it, "PDF") }
+                    if (book == null || file == null) {
+                        LaunchedEffect(Unit) { nav.popBackStack() }
+                    } else {
+                        PdfReaderScreen(
+                            book = book,
+                            file = file,
                             dark = dark,
                             initialProgress = vm.progress[book.id] ?: 0f,
                             onProgress = { vm.markRead(book.id, it) },
@@ -343,9 +370,17 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
                         },
                         onContinue = { book ->
                             lastOpened = book.id
-                            val fmt = book.formats.firstOrNull { it.format.equals("EPUB", true) }
-                            if (fmt != null) nav.navigate("read/${book.id}/EPUB")
-                            else nav.navigate("book/${book.id}")
+                            val formats = book.formats.map { it.format.uppercase() }
+                            val supported = com.zhijian.reading.reader.BookDecoder.SUPPORTED
+                            when {
+                                "EPUB" in formats -> nav.navigate("read/${book.id}/EPUB")
+                                "PDF" in formats -> nav.navigate("pdf/${book.id}")
+                                formats.any { it in supported } -> {
+                                    val f = formats.first { it in supported }
+                                    nav.navigate("read/${book.id}/$f")
+                                }
+                                else -> nav.navigate("book/${book.id}")
+                            }
                         },
                         onOpenSettings = { nav.navigate("settings") },
                     )

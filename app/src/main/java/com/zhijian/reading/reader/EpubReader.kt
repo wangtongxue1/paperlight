@@ -14,24 +14,13 @@ import java.util.zip.ZipFile
  */
 object EpubReader {
 
-    /** One entry of the table of contents: its spine chapter and a title. */
-    data class TocItem(val index: Int, val title: String)
-
-    data class Content(
-        val html: String,
-        val baseUrl: String,
-        val title: String,
-        val dir: File,
-        val toc: List<TocItem>,
-    )
-
     private data class ManifestItem(val href: String, val type: String, val properties: String = "")
 
     fun prepare(
         epub: File,
         cacheRoot: File,
-        dark: Boolean,
-    ): Content? = runCatching {
+        theme: String = "light",
+    ): BookContent? = runCatching {
         val key = epub.absolutePath.hashCode().toString() + "-" + epub.length()
         val dir = File(cacheRoot, "book-$key")
         if (!dir.exists()) {
@@ -57,19 +46,17 @@ object EpubReader {
 
         val (title, manifest, spine) = parseOpf(opfFile)
         val body = StringBuilder()
-        spine.forEachIndexed { index, idref ->
+            spine.forEachIndexed { index, idref ->
             val item = manifest[idref] ?: return@forEachIndexed
             val file = File(opfDir, item.href)
             if (!file.exists()) return@forEachIndexed
             val raw = file.readText()
             val inner = extractBody(raw)
-            body.append("<section class=\"chapter\" id=\"ch$index\">")
-            body.append(rewriteImages(inner, file.parentFile ?: opfDir))
-            body.append("</section>")
+            body.append(PageTemplate.chapter(index, rewriteImages(inner, file.parentFile ?: opfDir)))
         }
 
-        Content(
-            html = document(title, body.toString(), dark),
+        BookContent(
+            html = PageTemplate.wrap(title, body.toString(), theme),
             baseUrl = opfDir.toURI().toString(),
             title = title,
             dir = dir,
@@ -150,7 +137,7 @@ object EpubReader {
                 val f = runCatching { File(navDir, href).canonicalFile.absolutePath }.getOrNull()
                     ?: return@forEach
                 val idx = byPath[f] ?: return@forEach
-                val t = unescape(stripTags(m.groupValues[2])).trim()
+                val t = PageTemplate.unescape(PageTemplate.stripTags(m.groupValues[2])).trim()
                 if (t.isNotBlank() && items.none { it.index == idx }) items += TocItem(idx, t)
             }
         return items.sortedBy { it.index }
@@ -169,7 +156,7 @@ object EpubReader {
             val f = runCatching { File(ncxDir, src).canonicalFile.absolutePath }.getOrNull()
                 ?: return@forEach
             val idx = byPath[f] ?: return@forEach
-            val t = unescape(stripTags(m.groupValues[1])).trim()
+            val t = PageTemplate.unescape(PageTemplate.stripTags(m.groupValues[1])).trim()
             if (t.isNotBlank() && items.none { it.index == idx }) items += TocItem(idx, t)
         }
         return items.sortedBy { it.index }
@@ -178,20 +165,9 @@ object EpubReader {
     private fun firstHeading(raw: String): String? {
         val m = Regex("<h[1-4][^>]*>(.*?)</h[1-4]>", RegexOption.DOT_MATCHES_ALL).find(raw)
             ?: return null
-        val t = unescape(stripTags(m.groupValues[1])).trim()
+        val t = PageTemplate.unescape(PageTemplate.stripTags(m.groupValues[1])).trim()
         return t.takeIf { it.isNotBlank() }?.take(40)
     }
-
-    private fun stripTags(s: String) = s.replace(Regex("<[^>]*>"), "")
-
-    private fun unescape(s: String) = s
-        .replace("&nbsp;", " ")
-        .replace("&amp;", "&")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&quot;", "\"")
-        .replace("&#39;", "'")
-        .replace("&apos;", "'")
 
     // ---- packaging -----------------------------------------------------------
 
@@ -275,58 +251,4 @@ object EpubReader {
             }
         }
 
-    /**
-     * The page is styled through CSS variables so the reader can switch
-     * themes at runtime; the JS engine in assets/reader.js drives the rest.
-     */
-    private fun document(title: String, body: String, dark: Boolean): String {
-        return """
-            <!DOCTYPE html>
-            <html${if (dark) " class=\"pl-dark\"" else ""}><head>
-            <meta charset="utf-8"/>
-            <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-            <title>${escape(title)}</title>
-            <style>
-              :root {
-                --ink: #21201c; --dim: #4a463f; --bg: #ffffff; --rule: #e2e1de;
-                --link: #3a5bc7; --selbg: #e1e9ff; --hlbg: rgba(255,196,0,.42); --codebg: #f4f3f1;
-              }
-              html.pl-dark {
-                --ink: #eeeeec; --dim: #b5b3ad; --bg: #111110; --rule: #31312e;
-                --link: #9eb1ff; --selbg: #1d2e62; --hlbg: rgba(255,196,0,.30); --codebg: #191918;
-              }
-              :root { color-scheme: light; }
-              html.pl-dark { color-scheme: dark; }
-              body {
-                margin: 0; padding: 20px 22px 64px;
-                background: var(--bg); color: var(--ink);
-                font-family: Georgia, 'Noto Serif', 'Songti SC', serif;
-                font-size: 17px; line-height: 1.78;
-                -webkit-text-size-adjust: 100%;
-                word-wrap: break-word;
-              }
-              section.chapter + section.chapter { margin-top: 2.2em; padding-top: 1.6em; border-top: 1px solid var(--rule); }
-              h1, h2, h3, h4 { font-family: -apple-system, 'Noto Sans', sans-serif; line-height: 1.32; margin: 1.6em 0 .8em; }
-              h1 { font-size: 1.42em; } h2 { font-size: 1.22em; } h3 { font-size: 1.08em; }
-              p { margin: 0 0 1em; text-indent: 1.5em; text-align: justify; }
-              p:first-of-type, h1 + p, h2 + p, h3 + p { text-indent: 0; }
-              img { max-width: 100%; height: auto; display: block; margin: 1.2em auto; }
-              blockquote { margin: 1em 0; padding-left: 1em; border-left: 2px solid var(--rule); color: var(--dim); }
-              a { color: var(--link); text-decoration: none; }
-              pre { white-space: pre-wrap; font-size: .86em; background: var(--codebg); padding: 10px 12px; border-radius: 6px; overflow-x: auto; }
-              hr { border: 0; border-top: 1px solid var(--rule); margin: 1.8em 0; }
-              ::selection { background: var(--selbg); }
-              span.pl-hl {
-                background: var(--hlbg); color: inherit;
-                -webkit-box-decoration-break: clone; box-decoration-break: clone;
-                border-radius: 2px; padding: 1px 0;
-              }
-              #pl-pager::-webkit-scrollbar { display: none; }
-            </style>
-            </head><body>$body</body></html>
-        """.trimIndent()
-    }
-
-    private fun escape(s: String) = s
-        .replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 }

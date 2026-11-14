@@ -26,6 +26,8 @@ data class Annotation(
     val note: String,
     val progress: Float,
     val createdAt: Long,
+    /** Highlight look: yellow / green / blue / pink / underline. */
+    val style: String = "yellow",
 )
 
 /**
@@ -76,6 +78,7 @@ class ReadingNotes(context: Context) {
         quote: String,
         note: String,
         progress: Float,
+        style: String = "yellow",
     ): Annotation = synchronized(lock) {
         val (marks, notes) = read()
         val a = Annotation(
@@ -86,6 +89,7 @@ class ReadingNotes(context: Context) {
             note = note.trim(),
             progress = progress.coerceIn(0f, 1f),
             createdAt = System.currentTimeMillis(),
+            style = style,
         )
         write(marks, notes + a)
         a
@@ -128,6 +132,7 @@ class ReadingNotes(context: Context) {
                         note = o.optString("note", ""),
                         progress = o.optDouble("progress", 0.0).toFloat(),
                         createdAt = o.optLong("createdAt", 0L),
+                        style = o.optString("style", "yellow"),
                     )
                 }
             }
@@ -160,6 +165,7 @@ class ReadingNotes(context: Context) {
                         .put("quote", it.quote)
                         .put("note", it.note)
                         .put("progress", it.progress.toDouble())
+                        .put("style", it.style)
                         .put("createdAt", it.createdAt),
                 )
             }

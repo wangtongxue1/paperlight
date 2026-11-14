@@ -114,6 +114,18 @@ interface AppStrings {
     val modeScrollDesc: String
     val modePagedDesc: String
     val fontSize: String
+    val readingTheme: String
+    val readerThemeLight: String
+    val readerThemeSepia: String
+    val readerThemeGray: String
+    val readerThemeNight: String
+    val brightness: String
+    val systemDefault: String
+    val lineHeight: String
+    val fontFamily: String
+    val fontSerif: String
+    val fontSans: String
+    val shareText: String
     val makeNote: String
     val copyText: String
     val deselect: String
@@ -130,6 +142,20 @@ interface AppStrings {
     val noteLabel: String
     fun chapterPos(cur: Int, total: Int): String
     fun pagePos(cur: Int, total: Int): String
+    val readerSearch: String
+    val readerSearchHint: String
+    val searchGo: String
+    val searchPrev: String
+    val searchNext: String
+    fun searchCount(n: Int): String
+    val searchNone: String
+    val autoTurn: String
+    val autoOff: String
+    val autoSlow: String
+    val autoMid: String
+    val autoFast: String
+    val autoFinished: String
+    fun pdfPageOf(cur: Int, total: Int): String
 
     // ---- get books / import ----
     val getBooksTitle: String
@@ -284,6 +310,18 @@ object StringsZh : AppStrings {
     override val modeScrollDesc = "连续滚动，手指滑动阅读"
     override val modePagedDesc = "仿真书页，点两侧或滑动翻页"
     override val fontSize = "字体大小"
+    override val readingTheme = "阅读主题"
+    override val readerThemeLight = "素白"
+    override val readerThemeSepia = "米黄"
+    override val readerThemeGray = "纸灰"
+    override val readerThemeNight = "夜间"
+    override val brightness = "亮度"
+    override val systemDefault = "跟随系统"
+    override val lineHeight = "行距"
+    override val fontFamily = "字体"
+    override val fontSerif = "衬线"
+    override val fontSans = "无衬线"
+    override val shareText = "分享"
     override val makeNote = "批注"
     override val copyText = "复制"
     override val deselect = "取消"
@@ -300,6 +338,20 @@ object StringsZh : AppStrings {
     override val noteLabel = "笔记"
     override fun chapterPos(cur: Int, total: Int) = "$cur/$total 章 · "
     override fun pagePos(cur: Int, total: Int) = "第 $cur / $total 页"
+    override val readerSearch = "搜索全书"
+    override val readerSearchHint = "输入要查找的文字"
+    override val searchGo = "查找"
+    override val searchPrev = "上一处"
+    override val searchNext = "下一处"
+    override fun searchCount(n: Int) = "找到 $n 处"
+    override val searchNone = "没有找到"
+    override val autoTurn = "自动翻页"
+    override val autoOff = "关"
+    override val autoSlow = "慢速"
+    override val autoMid = "中速"
+    override val autoFast = "快速"
+    override val autoFinished = "已到全书末尾，自动翻页停止"
+    override fun pdfPageOf(cur: Int, total: Int) = "第 $cur / $total 页"
 
     override val getBooksTitle = "导入"
     override val urlImport = "链接导入"
@@ -308,7 +360,7 @@ object StringsZh : AppStrings {
     override val urlImportAction = "下载并导入"
     override val urlFailed = "下载失败"
     override val importFromDevice = "本机文件导入"
-    override val importFromDeviceNote = "支持 EPUB、PDF、MOBI、AZW3、TXT"
+    override val importFromDeviceNote = "支持 EPUB、PDF、TXT、MOBI、HTML、MD、FB2"
     override val localImportTitle = "本机文件导入"
     override val localImportNoPerm = "浏览并导入本机书籍"
     override val localImportChange = "更换文件夹"
@@ -316,7 +368,7 @@ object StringsZh : AppStrings {
     override val localImportPickNote =
         "授权一次「下载」等常用文件夹后，即可直接在应用内浏览、勾选并导入，无需任何手机权限。"
     override val localImportSelectFiles = "直接从系统选择文件"
-    override val localImportFormats = "支持 EPUB、PDF、MOBI、AZW3、TXT"
+    override val localImportFormats = "支持 EPUB、PDF、TXT、MOBI、HTML、MD、FB2"
     override val localImportEmpty = "此文件夹没有可导入的书籍"
     override fun localImportSelected(n: Int) = "已选 $n 本"
     override val localImportAction = "导入"
@@ -452,6 +504,18 @@ object StringsEn : AppStrings {
     override val modeScrollDesc = "Continuous scrolling with your finger"
     override val modePagedDesc = "Book-like pages, tap or swipe to turn"
     override val fontSize = "Text size"
+    override val readingTheme = "Reading theme"
+    override val readerThemeLight = "White"
+    override val readerThemeSepia = "Sepia"
+    override val readerThemeGray = "Gray"
+    override val readerThemeNight = "Night"
+    override val brightness = "Brightness"
+    override val systemDefault = "System"
+    override val lineHeight = "Line spacing"
+    override val fontFamily = "Typeface"
+    override val fontSerif = "Serif"
+    override val fontSans = "Sans"
+    override val shareText = "Share"
     override val makeNote = "Note"
     override val copyText = "Copy"
     override val deselect = "Clear"
@@ -468,6 +532,20 @@ object StringsEn : AppStrings {
     override val noteLabel = "Note"
     override fun chapterPos(cur: Int, total: Int) = "Ch. $cur/$total · "
     override fun pagePos(cur: Int, total: Int) = "Page $cur of $total"
+    override val readerSearch = "Search in book"
+    override val readerSearchHint = "Text to find"
+    override val searchGo = "Find"
+    override val searchPrev = "Prev"
+    override val searchNext = "Next"
+    override fun searchCount(n: Int) = "$n matches"
+    override val searchNone = "No matches"
+    override val autoTurn = "Auto page turn"
+    override val autoOff = "Off"
+    override val autoSlow = "Slow"
+    override val autoMid = "Mid"
+    override val autoFast = "Fast"
+    override val autoFinished = "Reached the end; auto turn stopped"
+    override fun pdfPageOf(cur: Int, total: Int) = "Page $cur of $total"
 
     override val getBooksTitle = "Import"
     override val urlImport = "Import from a link"
@@ -476,7 +554,7 @@ object StringsEn : AppStrings {
     override val urlImportAction = "Download and import"
     override val urlFailed = "That download failed"
     override val importFromDevice = "Import from this device"
-    override val importFromDeviceNote = "EPUB, PDF, MOBI, AZW3, TXT"
+    override val importFromDeviceNote = "EPUB, PDF, TXT, MOBI, HTML, MD, FB2"
     override val localImportTitle = "On this device"
     override val localImportNoPerm = "Browse and import local books"
     override val localImportChange = "Change folder"
@@ -484,7 +562,7 @@ object StringsEn : AppStrings {
     override val localImportPickNote =
         "Grant a folder like Downloads once, then browse, pick and import books right here — no storage permission needed."
     override val localImportSelectFiles = "Pick files from the system picker"
-    override val localImportFormats = "EPUB, PDF, MOBI, AZW3, TXT"
+    override val localImportFormats = "EPUB, PDF, TXT, MOBI, HTML, MD, FB2"
     override val localImportEmpty = "No importable books in this folder"
     override fun localImportSelected(n: Int) = "$n selected"
     override val localImportAction = "Import"

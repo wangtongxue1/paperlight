@@ -12,21 +12,19 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -37,6 +35,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -61,20 +60,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import com.zhijian.reading.R
@@ -82,7 +79,9 @@ import com.zhijian.reading.data.Annotation
 import com.zhijian.reading.data.Book
 import com.zhijian.reading.data.ReadingNotes
 import com.zhijian.reading.data.Settings
-import com.zhijian.reading.reader.EpubReader
+import com.zhijian.reading.reader.BookContent
+import com.zhijian.reading.reader.BookDecoder
+import com.zhijian.reading.reader.TocItem
 import com.zhijian.reading.ui.strings
 import com.zhijian.reading.ui.theme.Radius
 import com.zhijian.reading.ui.theme.Type
@@ -129,16 +128,20 @@ private data class Selection(
     val cxD: Float = -1f,
 )
 
-/** A page of the book frozen mid-turn: front face, and its paper back. */
-private data class FlipAnim(val front: ImageBitmap, val forward: Boolean)
+/** Highlight looks offered in the selection pill, in tap order. */
+private val HL_STYLES = listOf("yellow", "green", "blue", "pink", "underline")
 
-/** Reads an EPUB: the spine in one scroll, with where you stopped kept. */
+/** Reader page themes, in panel order. */
+private val READER_THEMES = listOf("light", "sepia", "gray", "dark")
+
+/** Reads any flowable book format: one scroll or one page at a time. */
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
 @Composable
 fun ReaderScreen(
     book: Book,
     file: File,
+    format: String,
     dark: Boolean,
     initialProgress: Float,
     onProgress: (Float) -> Unit,
@@ -153,12 +156,17 @@ fun ReaderScreen(
 
     var fontScale by remember { mutableFloatStateOf(appSettings.readerFontScale) }
     var paged by remember { mutableStateOf(appSettings.readerMode == "paged") }
-    var content by remember { mutableStateOf<EpubReader.Content?>(null) }
+    var theme by remember { mutableStateOf(appSettings.readerTheme) }
+    var lineHeight by remember { mutableFloatStateOf(appSettings.readerLineHeight) }
+    var fontFamily by remember { mutableStateOf(appSettings.readerFontFamily) }
+    var brightness by remember { mutableFloatStateOf(appSettings.readerBrightness) }
+    var content by remember { mutableStateOf<BookContent?>(null) }
     var loading by remember { mutableStateOf(true) }
     var engineReady by remember { mutableStateOf(false) }
     var pageReady by remember { mutableIntStateOf(0) }
     var progress by remember { mutableFloatStateOf(initialProgress) }
     var restoreTo by remember { mutableFloatStateOf(initialProgress) }
+    var seek by remember { mutableStateOf<Float?>(null) }
 
     var chromeOn by remember { mutableStateOf(true) }
     var info by remember { mutableStateOf(PageInfo(ratio = initialProgress)) }
@@ -167,9 +175,14 @@ fun ReaderScreen(
     var noteFor by remember { mutableStateOf<Selection?>(null) }
     var annos by remember { mutableStateOf(notes.annotations(book.id)) }
 
-    var flip by remember { mutableStateOf<FlipAnim?>(null) }
-    var flipBack by remember { mutableStateOf<ImageBitmap?>(null) }
-    val flipAnim = remember { Animatable(0f) }
+    // Full-text search: the query lives here, the hits live in the page.
+    var searchOpen by remember { mutableStateOf(false) }
+    var searchText by remember { mutableStateOf("") }
+    var searchCount by remember { mutableIntStateOf(0) }
+    var searchAt by remember { mutableIntStateOf(-1) }
+
+    // Automatic page turning, 0 = off, else the interval in seconds.
+    var autoSpeed by remember { mutableIntStateOf(0) }
 
     val ui = remember { Handler(Looper.getMainLooper()) }
     val sink = remember { Sink() }
@@ -214,30 +227,28 @@ fun ReaderScreen(
         selection = null
     }
 
-    fun capturePage(): ImageBitmap? = runCatching {
-        val b = android.graphics.Bitmap.createBitmap(
-            webView.width, webView.height, android.graphics.Bitmap.Config.ARGB_8888,
-        )
-        webView.draw(android.graphics.Canvas(b))
-        b.asImageBitmap()
-    }.getOrNull()
-
-    /** Freezes the current page, turns the engine, then peels the sheet off like paper. */
-    fun flipPage(forward: Boolean) {
-        if (flip != null || info.pages <= 0) return
-        val bmp = capturePage() ?: return
-        flip = FlipAnim(bmp, forward)
-        runJs("window.__pl.${if (forward) "next" else "prev"}()")
+    /** Side taps: turn pages when paged, slide a screen when scrolling. */
+    fun tapZone(dir: Int) {
+        if (paged && info.pages > 0) {
+            runJs("window.__pl.${if (dir > 0) "next" else "prev"}()")
+        } else {
+            runJs("window.__pl.scrollScreens($dir)")
+        }
     }
 
-    LaunchedEffect(flip) {
-        val f = flip ?: return@LaunchedEffect
-        delay(90) // let the engine land on the new page and paint it
-        flipBack = capturePage() // what the sheet's back side shows once past 90°
-        flipAnim.snapTo(0f)
-        flipAnim.animateTo(1f, tween(durationMillis = 380, easing = FastOutSlowInEasing))
-        flip = null
-        flipBack = null
+    /** One tap on a pill color: save the passage with that highlight look. */
+    fun applyHighlightStyle(s: Selection, style: String) {
+        val saved = runCatching {
+            val a = notes.addAnnotation(book.id, s.chapter, s.text, "", info.ratio, style)
+            runJs("window.__pl.applyHighlight('${a.id}', '$style')")
+            runJs("window.__pl.clearSelection()")
+            a
+        }.getOrNull()
+        annos = notes.annotations(book.id)
+        selection = null
+        if (saved == null) {
+            Toast.makeText(context, strings.noteFailed, Toast.LENGTH_SHORT).show()
+        }
     }
 
     fun onBridge(type: String, data: String) {
@@ -245,17 +256,12 @@ fun ReaderScreen(
         val d = context.resources.displayMetrics.density
         when (type) {
             "tap" -> {
-                if (flip != null) return
                 // The engine reports CSS pixels; width is in device pixels.
                 val x = obj.optDouble("x", 0.0).toFloat() * d
-                if (paged && info.pages > 0) {
-                    when {
-                        x < webView.width * 0.32f -> flipPage(false)
-                        x > webView.width * 0.68f -> flipPage(true)
-                        else -> chromeOn = !chromeOn
-                    }
-                } else {
-                    chromeOn = !chromeOn
+                when {
+                    x < webView.width * 0.32f -> tapZone(-1)
+                    x > webView.width * 0.68f -> tapZone(1)
+                    else -> chromeOn = !chromeOn
                 }
             }
             "metrics" -> {
@@ -268,6 +274,16 @@ fun ReaderScreen(
                     chapter = obj.optInt("chapter", 0),
                     ratio = ratio,
                 )
+            }
+            "search" -> {
+                searchCount = obj.optInt("count", 0)
+                searchAt = if (searchCount > 0) 0 else -1
+            }
+            "autoStop" -> {
+                autoSpeed = 0
+                if (obj.optString("reason") == "end") {
+                    Toast.makeText(context, strings.autoFinished, Toast.LENGTH_SHORT).show()
+                }
             }
             "selection" -> {
                 val text = obj.optString("text", "")
@@ -287,10 +303,23 @@ fun ReaderScreen(
     }
     sink.receive = { type, data -> onBridge(type, data) }
 
+    fun searchSubmit(q: String) {
+        searchText = q
+        searchAt = -1
+        runJs("window.__pl.search(${JSONObject.quote(q)})")
+    }
+
+    fun searchStep(delta: Int) {
+        if (searchCount <= 0) return
+        val next = (searchAt + delta).mod(searchCount)
+        searchAt = next
+        runJs("window.__pl.searchStep($next)")
+    }
+
     LaunchedEffect(book.id) {
         loading = true
         val prepared = withContext(Dispatchers.IO) {
-            EpubReader.prepare(epub = file, cacheRoot = File(context.cacheDir, "reader"), dark = dark)
+            BookDecoder.prepare(file, cacheRoot = File(context.cacheDir, "reader"), theme = theme)
         }
         content = prepared
         if (prepared != null) {
@@ -305,13 +334,15 @@ fun ReaderScreen(
     LaunchedEffect(pageReady) {
         if (pageReady == 0) return@LaunchedEffect
         val c = content ?: run { loading = false; return@LaunchedEffect }
-        runJs("window.__pl.setTheme($dark)")
+        runJs("window.__pl.setTheme('$theme')")
         runJs("window.__pl.setFontScale($fontScale)")
+        runJs("window.__pl.setLineHeight($lineHeight)")
+        runJs("window.__pl.setFontFamily('$fontFamily')")
         runJs("window.__pl.setMode('${if (paged) "paged" else "scroll"}')")
         annos.forEach { a ->
             runJs(
                 "window.__pl.highlightByText(" +
-                    "'${a.id}', ${JSONObject.quote(a.quote)}, ${a.chapter})",
+                    "'${a.id}', ${JSONObject.quote(a.quote)}, ${a.chapter}, '${a.style}')",
             )
         }
         if (restoreTo > 0f) runJs("window.__pl.jumpRatio($restoreTo)")
@@ -334,14 +365,57 @@ fun ReaderScreen(
         }
     }
     LaunchedEffect(dark) {
-        if (engineReady) runJs("window.__pl.setTheme($dark)")
+        if (engineReady) runJs("window.__pl.setTheme('$theme')")
+    }
+    LaunchedEffect(theme) {
+        if (engineReady) {
+            runJs("window.__pl.setTheme('$theme')")
+            appSettings.readerTheme = theme
+        }
+    }
+    LaunchedEffect(lineHeight) {
+        if (engineReady) {
+            runJs("window.__pl.setLineHeight($lineHeight)")
+            appSettings.readerLineHeight = lineHeight
+        }
+    }
+    LaunchedEffect(fontFamily) {
+        if (engineReady) {
+            runJs("window.__pl.setFontFamily('$fontFamily')")
+            appSettings.readerFontFamily = fontFamily
+        }
+    }
+    LaunchedEffect(brightness) {
+        appSettings.readerBrightness = brightness
+        val win = (context as? android.app.Activity)?.window ?: return@LaunchedEffect
+        win.attributes = win.attributes.apply {
+            screenBrightness = if (brightness > 0f) brightness.coerceIn(0.01f, 1f) else -1f
+        }
+    }
+    DisposableEffect(Unit) {
+        val win = (context as? android.app.Activity)?.window
+        val old = win?.attributes?.screenBrightness ?: -1f
+        onDispose {
+            if (win != null) {
+                win.attributes = win.attributes.apply { screenBrightness = old }
+            }
+        }
+    }
+
+    // Automatic page turning rides the engine's timer; zero switches it off.
+    LaunchedEffect(autoSpeed) {
+        if (engineReady) runJs("window.__pl.setAuto(${autoSpeed * 1000})")
     }
 
     // Keep the place even if the reader is closed by the system.
     DisposableEffect(book.id) {
         onDispose {
+            runCatching {
+                runJs("window.__pl.setAuto(0)")
+                runJs("window.__pl.searchClear()")
+                webView.destroy()
+            }
             onProgress(progress.coerceIn(0f, 1f))
-            webView.destroy()
         }
     }
 
@@ -380,18 +454,95 @@ fun ReaderScreen(
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val toc = content?.toc.orEmpty()
 
+    val chromeBg = if (dark) pal.bgApp else pal.surface
+    val contentBg = when (theme) {
+        "dark" -> Color(0xFF111110)
+        "sepia" -> Color(0xFFF7EFE0)
+        "gray" -> Color(0xFFE3E1DC)
+        else -> Color(0xFFFFFFFF)
+    }
+    val shown = (seek ?: progress).coerceIn(0f, 1f)
+
     Box(
         Modifier
             .fillMaxSize()
-            .background(if (dark) pal.bgApp else pal.surface),
+            .background(contentBg),
     ) {
-        Column(Modifier.fillMaxSize()) {
-            // ---- top chrome ------------------------------------------------
+        // ---- the page: full-bleed; chrome floats above it, never reflows it
+        AndroidView(
+            factory = { webView },
+            modifier = Modifier.fillMaxSize(),
+        )
+
+        if (loading || content == null) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    text = if (content == null && !loading) strings.readerFailed else "…",
+                    style = Type.small,
+                    color = pal.textTertiary,
+                )
+            }
+        }
+
+        // Compact dark action pill hugging the selection, Apple Books style.
+        selection?.let { sel ->
+            val config = LocalConfiguration.current
+            val dens = LocalDensity.current
+            val yTop = with(dens) { sel.topY.toDp() }
+            val yBot = with(dens) { sel.botY.toDp() }
+            val xC = with(dens) { sel.cxD.toDp() }
+            val pillW = 218.dp
+            val x = (xC - pillW / 2).coerceIn(8.dp, config.screenWidthDp.dp - pillW - 8.dp)
+            val placeAbove = yTop >= 128.dp
+            val y = if (placeAbove) yTop - 106.dp else yBot + 12.dp
+            Column(
+                Modifier
+                    .offset(x = x, y = y)
+                    .zIndex(3f)
+                    .shadow(10.dp, RoundedCornerShape(12.dp))
+                    .background(Color(0xE625221F), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 10.dp, vertical = 7.dp),
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    HL_STYLES.forEach { st ->
+                        StyleDot(style = st, onClick = { applyHighlightStyle(sel, st) })
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    PillIcon(R.drawable.ic_r_note, strings.makeNote, Color(0xFFEDE7DD)) {
+                        if (engineReady) noteFor = sel
+                    }
+                    PillIcon(R.drawable.ic_r_copy, strings.copyText, Color(0xFFEDE7DD)) {
+                        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        cm.setPrimaryClip(ClipData.newPlainText("quote", sel.text))
+                        Toast.makeText(context, strings.copied, Toast.LENGTH_SHORT).show()
+                        clearSelection()
+                    }
+                    PillIcon(R.drawable.ic_a_link, strings.shareText, Color(0xFFEDE7DD)) {
+                        val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(android.content.Intent.EXTRA_TEXT, sel.text)
+                        }
+                        runCatching {
+                            context.startActivity(android.content.Intent.createChooser(send, null))
+                        }
+                        clearSelection()
+                    }
+                    PillIcon(R.drawable.ic_r_close, strings.deselect, Color(0xFF9C968D)) {
+                        clearSelection()
+                    }
+                }
+            }
+        }
+
+        // ---- top chrome: floats over the page -----------------------------
+        Box(Modifier.fillMaxWidth().align(Alignment.TopCenter)) {
             AnimatedVisibility(visible = chromeOn) {
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .background(if (dark) pal.bgApp else pal.surface)
+                        .background(chromeBg)
                         .padding(horizontal = 8.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -418,204 +569,179 @@ fun ReaderScreen(
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            text = "${(progress * 100).toInt()}%",
+                            text = "${(shown * 100).toInt()}%",
                             style = Type.numeric,
                             color = pal.textTertiary,
                         )
                     }
-                }
-            }
-
-            // ---- the page ----------------------------------------------------
-            Box(Modifier.weight(1f).clipToBounds()) {
-                AndroidView(
-                    factory = { webView },
-                    modifier = Modifier.fillMaxSize(),
-                )
-
-                // A page peeling around its spine while a flip plays out:
-                // the first half shows the page being left lifting off, past
-                // 90° the sheet turns over and the new page (printed on the
-                // back, counter-mirrored so it reads upright) unfolds flat.
-                flip?.let { f ->
-                    val t = flipAnim.value
-                    val angle = -180f * t
-                    val showFront = t <= 0.5f
-                    val sheet = if (showFront) f.front else flipBack
-                    val shade = 0.22f * kotlin.math.sin(t * Math.PI).toFloat()
+                    // Full-text search, the 起点/番茄 staple, quiet styling.
                     Box(
                         Modifier
-                            .fillMaxSize()
-                            .zIndex(1f)
-                            .graphicsLayer {
-                                cameraDistance = size.width * 2.4f
-                                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0.5f)
-                                rotationY = angle
-                            },
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(Radius.md.dp))
+                            .clickable { searchOpen = true },
+                        contentAlignment = Alignment.Center,
                     ) {
-                        if (sheet != null) {
-                            Image(
-                                bitmap = sheet,
-                                contentDescription = null,
-                                contentScale = ContentScale.FillBounds,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .graphicsLayer {
-                                        // Seen from behind, the sheet would
-                                        // mirror; flip the print back upright.
-                                        scaleX = if (showFront) 1f else -1f
-                                    },
-                            )
-                        } else {
-                            // The paper back of the page — no mirrored text.
-                            Box(
-                                Modifier
-                                    .fillMaxSize()
-                                    .background(if (dark) pal.bgApp else pal.surface),
-                            )
-                        }
-                        // Light falls off as the sheet turns away from the eye.
-                        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = shade)))
-                        // A soft shadow hugging the spine edge.
-                        Box(
-                            Modifier
-                                .fillMaxHeight()
-                                .width(26.dp)
-                                .background(
-                                    Brush.horizontalGradient(
-                                        0f to Color.Black.copy(alpha = shade * 0.9f),
-                                        1f to Color.Transparent,
-                                    ),
-                                ),
+                        Icon(
+                            painterResource(R.drawable.ic_a_search),
+                            contentDescription = strings.readerSearch,
+                            tint = pal.icon,
+                            modifier = Modifier.size(19.dp),
                         )
-                    }
-                }
-
-                if (loading || content == null) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(
-                            text = if (content == null && !loading) strings.readerFailed else "…",
-                            style = Type.small,
-                            color = pal.textTertiary,
-                        )
-                    }
-                }
-
-                // Compact dark action pill hugging the selection, Apple Books style.
-                selection?.let { sel ->
-                    val config = LocalConfiguration.current
-                    val dens = LocalDensity.current
-                    val yTop = with(dens) { sel.topY.toDp() }
-                    val yBot = with(dens) { sel.botY.toDp() }
-                    val xC = with(dens) { sel.cxD.toDp() }
-                    val pillW = 118.dp
-                    val x = (xC - pillW / 2).coerceIn(8.dp, config.screenWidthDp.dp - pillW - 8.dp)
-                    val placeAbove = yTop >= 96.dp
-                    val y = if (placeAbove) yTop - 52.dp else yBot + 10.dp
-                    Row(
-                        Modifier
-                            .offset(x = x, y = y)
-                            .zIndex(3f)
-                            .shadow(10.dp, RoundedCornerShape(12.dp))
-                            .background(Color(0xE625221F), RoundedCornerShape(12.dp))
-                            .padding(horizontal = 4.dp, vertical = 3.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        PillIcon(R.drawable.ic_r_note, strings.makeNote, Color(0xFFEDE7DD)) {
-                            if (engineReady) noteFor = sel
-                        }
-                        PillIcon(R.drawable.ic_r_copy, strings.copyText, Color(0xFFEDE7DD)) {
-                            val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            cm.setPrimaryClip(ClipData.newPlainText("quote", sel.text))
-                            Toast.makeText(context, strings.copied, Toast.LENGTH_SHORT).show()
-                            clearSelection()
-                        }
-                        PillIcon(R.drawable.ic_r_close, strings.deselect, Color(0xFF9C968D)) {
-                            clearSelection()
-                        }
                     }
                 }
             }
+        }
 
-            // ---- always-on position line: page and percent never hide -------
+        // ---- paged footer: chapter + page in the page's own margin band ----
+        if (!chromeOn && info.mode == "paged" && info.pages > 0) {
+            val footerInk = when (theme) {
+                "dark" -> Color(0xFF6E6C66)
+                "sepia" -> Color(0xFFA5906B)
+                "gray" -> Color(0xFF8B8880)
+                else -> Color(0xFF9C968D)
+            }
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .background(if (dark) pal.bgApp else pal.surface)
-                    .padding(horizontal = 16.dp, vertical = 5.dp),
+                    .align(Alignment.BottomCenter)
+                    .padding(start = 22.dp, end = 22.dp, bottom = navBottom + 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = if (info.mode == "paged" && info.pages > 0) {
-                        strings.pagePos(info.page, info.pages)
-                    } else {
-                        strings.chapterPos(info.chapter + 1, toc.size) + "${(info.ratio * 100).toInt()}%"
-                    },
-                    style = Type.numeric,
-                    color = pal.textTertiary,
-                    modifier = Modifier.weight(1f),
+                    text = toc.getOrNull(info.chapter)?.title ?: book.title,
+                    style = Type.numeric.copy(fontSize = 11.sp),
+                    color = footerInk,
                     maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
                 )
                 Text(
-                    text = "${(progress * 100).toInt()}%",
-                    style = Type.numeric,
-                    color = pal.textTertiary,
+                    text = strings.pagePos(info.page, info.pages),
+                    style = Type.numeric.copy(fontSize = 11.sp),
+                    color = footerInk,
                 )
             }
+        }
 
-            // ---- progress line -----------------------------------------------
-            Box(
+        // ---- bottom overlay: seekable position line + nav ------------------
+        Column(Modifier.fillMaxWidth().align(Alignment.BottomCenter)) {
+            Column(
                 Modifier
                     .fillMaxWidth()
-                    .height(2.dp)
-                    .background(pal.borderSubtle),
+                    .background(chromeBg)
+                    .padding(bottom = if (chromeOn) 0.dp else navBottom),
             ) {
-                Box(
-                    Modifier
-                        .fillMaxWidth(progress.coerceIn(0f, 1f))
-                        .height(2.dp)
-                        .background(pal.accent),
-                )
-            }
-
-            // ---- bottom chrome: labeled nav row -------------------------------
-            AnimatedVisibility(visible = chromeOn) {
-                Column(
+                // Seek bar: tap to jump, drag to scrub, thumb appears mid-drag.
+                BoxWithConstraints(
                     Modifier
                         .fillMaxWidth()
-                        .background(if (dark) pal.bgApp else pal.surface),
+                        .padding(horizontal = 10.dp)
+                        .height(28.dp)
+                        .pointerInput(Unit) {
+                            detectTapGestures { p ->
+                                val r = (p.x / size.width.toFloat()).coerceIn(0f, 1f)
+                                runJs("window.__pl.jumpRatio($r)")
+                            }
+                        }
+                        .pointerInput(Unit) {
+                            detectHorizontalDragGestures(
+                                onDragStart = { p ->
+                                    seek = (p.x / size.width.toFloat()).coerceIn(0f, 1f)
+                                },
+                                onDragEnd = {
+                                    seek?.let { runJs("window.__pl.jumpRatio($it)") }
+                                    seek = null
+                                },
+                                onDragCancel = { seek = null },
+                            ) { change, _ ->
+                                seek = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
+                                change.consume()
+                            }
+                        },
+                    contentAlignment = Alignment.CenterStart,
                 ) {
-                    Row(
+                    Box(
                         Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp)
-                            .padding(bottom = navBottom + 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                            .height(3.dp)
+                            .background(pal.borderSubtle),
+                    )
+                    Box(
+                        Modifier
+                            .fillMaxWidth(shown)
+                            .height(3.dp)
+                            .background(pal.accent),
+                    )
+                    if (seek != null) {
+                        Box(
+                            Modifier
+                                .align(Alignment.CenterStart)
+                                .offset(x = (maxWidth * shown - 7.dp).coerceAtLeast(0.dp))
+                                .size(14.dp)
+                                .clip(CircleShape)
+                                .background(pal.accent),
+                        )
+                    }
+                }
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = if (info.mode == "paged" && info.pages > 0) {
+                            strings.pagePos(info.page, info.pages)
+                        } else {
+                            strings.chapterPos(info.chapter + 1, toc.size) + "${(info.ratio * 100).toInt()}%"
+                        },
+                        style = Type.numeric,
+                        color = pal.textTertiary,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                    )
+                    Text(
+                        text = "${(shown * 100).toInt()}%",
+                        style = Type.numeric,
+                        color = pal.textTertiary,
+                    )
+                }
+            }
+
+            // ---- bottom chrome: labeled nav row ----------------------------
+            AnimatedVisibility(visible = chromeOn) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(chromeBg)
+                        .padding(horizontal = 8.dp)
+                        .padding(bottom = navBottom + 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    NavItem(
+                        R.drawable.ic_r_toc,
+                        strings.readerToc,
+                        panel == Panel.Toc,
+                        modifier = Modifier.weight(1f),
                     ) {
-                        NavItem(
-                            R.drawable.ic_r_toc,
-                            strings.readerToc,
-                            panel == Panel.Toc,
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            panel = Panel.Toc
-                        }
-                        NavItem(
-                            R.drawable.ic_r_annotate,
-                            strings.readerAnnotations,
-                            panel == Panel.Annos,
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            panel = Panel.Annos
-                        }
-                        NavItem(
-                            R.drawable.ic_a_gear,
-                            strings.readerLook,
-                            panel == Panel.Look,
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            panel = Panel.Look
-                        }
+                        panel = Panel.Toc
+                    }
+                    NavItem(
+                        R.drawable.ic_r_annotate,
+                        strings.readerAnnotations,
+                        panel == Panel.Annos,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        panel = Panel.Annos
+                    }
+                    NavItem(
+                        R.drawable.ic_a_gear,
+                        strings.readerLook,
+                        panel == Panel.Look,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        panel = Panel.Look
                     }
                 }
             }
@@ -660,12 +786,73 @@ fun ReaderScreen(
                     Panel.Look -> LookPanel(
                         fontScale = fontScale,
                         paged = paged,
+                        theme = theme,
+                        lineHeight = lineHeight,
+                        fontFamily = fontFamily,
+                        brightness = brightness,
+                        autoSpeed = autoSpeed,
                         onFont = { fontScale = it },
                         onMode = { paged = it },
+                        onTheme = { theme = it },
+                        onLineHeight = { lineHeight = it },
+                        onFontFamily = { fontFamily = it },
+                        onBrightness = { brightness = it },
+                        onAuto = { autoSpeed = it },
                     )
                 }
             }
         }
+    }
+
+    // ---- full-text search -------------------------------------------------------
+    if (searchOpen) {
+        AlertDialog(
+            onDismissRequest = {
+                searchOpen = false
+                runJs("window.__pl.searchClear()")
+            },
+            containerColor = pal.surfaceRaised,
+            titleContentColor = pal.text,
+            textContentColor = pal.textSecondary,
+            title = { Text(strings.readerSearch) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = searchText,
+                        onValueChange = { searchText = it },
+                        placeholder = { Text(strings.readerSearchHint, style = Type.small) },
+                        singleLine = true,
+                        textStyle = Type.body,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        text = when {
+                            searchCount > 0 -> strings.searchCount(searchCount)
+                            searchText.isNotBlank() -> strings.searchNone
+                            else -> ""
+                        },
+                        style = Type.small,
+                        color = pal.textTertiary,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { searchSubmit(searchText) }, enabled = searchText.isNotBlank()) {
+                    Text(strings.searchGo, color = if (searchText.isNotBlank()) pal.accent else pal.textTertiary)
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = { searchStep(-1) }, enabled = searchCount > 0) {
+                        Text(strings.searchPrev, color = if (searchCount > 0) pal.accent else pal.textTertiary)
+                    }
+                    TextButton(onClick = { searchStep(1) }, enabled = searchCount > 0) {
+                        Text(strings.searchNext, color = if (searchCount > 0) pal.accent else pal.textTertiary)
+                    }
+                }
+            },
+        )
     }
 
     // ---- the note dialog -------------------------------------------------------
@@ -776,7 +963,7 @@ private fun PillIcon(iconRes: Int, desc: String, tint: Color, onClick: () -> Uni
 
 @Composable
 private fun TocPanel(
-    toc: List<EpubReader.TocItem>,
+    toc: List<TocItem>,
     current: Int,
     onJumpChapter: (Int) -> Unit,
 ) {
@@ -786,7 +973,13 @@ private fun TocPanel(
         Text(strings.noToc, style = Type.small, color = pal.textTertiary)
         return
     }
-    LazyColumn(Modifier.height(420.dp)) {
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    // Open on where the reader actually is, like the 番茄/起点 目录.
+    LaunchedEffect(toc, current) {
+        val row = toc.indexOfFirst { it.index == current }
+        if (row >= 0) listState.scrollToItem(row.coerceAtLeast(0))
+    }
+    LazyColumn(modifier = Modifier.height(420.dp), state = listState) {
         items(toc, key = { it.index }) { item ->
             Row(
                 Modifier
@@ -853,7 +1046,7 @@ private fun AnnotationPanel(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(Radius.sm.dp))
-                        .background(pal.accentSubtle)
+                        .background(annoColor(a.style, pal))
                         .padding(8.dp),
                 )
                 if (a.note.isNotBlank()) {
@@ -893,7 +1086,22 @@ private fun AnnotationPanel(
 }
 
 @Composable
-private fun LookPanel(fontScale: Float, paged: Boolean, onFont: (Float) -> Unit, onMode: (Boolean) -> Unit) {
+private fun LookPanel(
+    fontScale: Float,
+    paged: Boolean,
+    theme: String,
+    lineHeight: Float,
+    fontFamily: String,
+    brightness: Float,
+    autoSpeed: Int,
+    onFont: (Float) -> Unit,
+    onMode: (Boolean) -> Unit,
+    onTheme: (String) -> Unit,
+    onLineHeight: (Float) -> Unit,
+    onFontFamily: (String) -> Unit,
+    onBrightness: (Float) -> Unit,
+    onAuto: (Int) -> Unit,
+) {
     val pal = palette
     val strings = strings
 
@@ -932,7 +1140,119 @@ private fun LookPanel(fontScale: Float, paged: Boolean, onFont: (Float) -> Unit,
     HorizontalDivider(color = pal.borderSubtle)
     Spacer(Modifier.height(18.dp))
 
-    // ---- section 2: page mode, as two big cards --------------------------------
+    // ---- section 2: reading theme, as four paper swatches ----------------------
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            painterResource(R.drawable.ic_r_look),
+            null,
+            tint = pal.textSecondary,
+            modifier = Modifier.size(16.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(strings.readingTheme, style = Type.title, color = pal.text)
+    }
+    Spacer(Modifier.height(10.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        ThemeSwatch("light", theme, strings.readerThemeLight, onTheme, Modifier.weight(1f))
+        ThemeSwatch("sepia", theme, strings.readerThemeSepia, onTheme, Modifier.weight(1f))
+        ThemeSwatch("gray", theme, strings.readerThemeGray, onTheme, Modifier.weight(1f))
+        ThemeSwatch("dark", theme, strings.readerThemeNight, onTheme, Modifier.weight(1f))
+    }
+
+    Spacer(Modifier.height(18.dp))
+    HorizontalDivider(color = pal.borderSubtle)
+    Spacer(Modifier.height(18.dp))
+
+    // ---- section 3: brightness, 0 follows the system ---------------------------
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(strings.brightness, style = Type.title, color = pal.text, modifier = Modifier.weight(1f))
+        Text(
+            text = if (brightness > 0f) "${(brightness * 100).toInt()}%" else strings.systemDefault,
+            style = Type.numeric,
+            color = pal.textTertiary,
+        )
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            painterResource(R.drawable.ic_r_look),
+            null,
+            tint = pal.textSecondary,
+            modifier = Modifier.size(14.dp),
+        )
+        Slider(
+            value = brightness,
+            onValueChange = { onBrightness(Math.round(it * 20f) / 20f) },
+            valueRange = 0f..1f,
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 10.dp),
+        )
+        Icon(
+            painterResource(R.drawable.ic_r_look),
+            null,
+            tint = pal.text,
+            modifier = Modifier.size(20.dp),
+        )
+    }
+
+    Spacer(Modifier.height(18.dp))
+    HorizontalDivider(color = pal.borderSubtle)
+    Spacer(Modifier.height(18.dp))
+
+    // ---- section 4: line spacing -----------------------------------------------
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(strings.lineHeight, style = Type.title, color = pal.text, modifier = Modifier.weight(1f))
+        Text(
+            text = String.format(java.util.Locale.US, "%.2f", lineHeight),
+            style = Type.numeric,
+            color = pal.textTertiary,
+        )
+    }
+    Slider(
+        value = lineHeight,
+        onValueChange = { onLineHeight(Math.round(it * 20f) / 20f) },
+        valueRange = 1.4f..2.2f,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 10.dp),
+    )
+
+    Spacer(Modifier.height(18.dp))
+    HorizontalDivider(color = pal.borderSubtle)
+    Spacer(Modifier.height(18.dp))
+
+    // ---- section 5: typeface -----------------------------------------------------
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            painterResource(R.drawable.ic_r_paged),
+            null,
+            tint = pal.textSecondary,
+            modifier = Modifier.size(16.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(strings.fontFamily, style = Type.title, color = pal.text)
+    }
+    Spacer(Modifier.height(10.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        ModeCard(
+            selected = fontFamily == "serif",
+            iconRes = R.drawable.ic_r_look,
+            title = strings.fontSerif,
+            modifier = Modifier.weight(1f),
+        ) { onFontFamily("serif") }
+        ModeCard(
+            selected = fontFamily == "sans",
+            iconRes = R.drawable.ic_r_look,
+            title = strings.fontSans,
+            modifier = Modifier.weight(1f),
+        ) { onFontFamily("sans") }
+    }
+
+    Spacer(Modifier.height(18.dp))
+    HorizontalDivider(color = pal.borderSubtle)
+    Spacer(Modifier.height(18.dp))
+
+    // ---- section 6: page mode, as two big cards --------------------------------
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
             painterResource(R.drawable.ic_r_paged),
@@ -957,6 +1277,110 @@ private fun LookPanel(fontScale: Float, paged: Boolean, onFont: (Float) -> Unit,
             title = strings.modePaged,
             modifier = Modifier.weight(1f),
         ) { onMode(true) }
+    }
+
+    Spacer(Modifier.height(18.dp))
+    HorizontalDivider(color = pal.borderSubtle)
+    Spacer(Modifier.height(18.dp))
+
+    // ---- section 7: automatic page turning, the 番茄 auto-read -------------------
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            painterResource(R.drawable.ic_r_paged),
+            null,
+            tint = pal.textSecondary,
+            modifier = Modifier.size(16.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(strings.autoTurn, style = Type.title, color = pal.text)
+    }
+    Spacer(Modifier.height(10.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        AutoCard(selected = autoSpeed == 0, title = strings.autoOff, modifier = Modifier.weight(1f)) { onAuto(0) }
+        AutoCard(selected = autoSpeed == 14, title = strings.autoSlow, modifier = Modifier.weight(1f)) { onAuto(14) }
+        AutoCard(selected = autoSpeed == 9, title = strings.autoMid, modifier = Modifier.weight(1f)) { onAuto(9) }
+        AutoCard(selected = autoSpeed == 5, title = strings.autoFast, modifier = Modifier.weight(1f)) { onAuto(5) }
+    }
+}
+
+/** One round paper chip for the reading theme. */
+@Composable
+private fun ThemeSwatch(
+    key: String,
+    current: String,
+    label: String,
+    onPick: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val pal = palette
+    val bg = when (key) {
+        "dark" -> Color(0xFF111110)
+        "sepia" -> Color(0xFFF7EFE0)
+        "gray" -> Color(0xFFE3E1DC)
+        else -> Color(0xFFFFFFFF)
+    }
+    val selected = key == current
+    Column(
+        modifier
+            .clip(RoundedCornerShape(Radius.md.dp))
+            .background(if (selected) pal.accentSubtle else pal.surfaceRaised)
+            .border(
+                width = if (selected) 1.5.dp else 1.dp,
+                color = if (selected) pal.accent else pal.borderSubtle,
+                shape = RoundedCornerShape(Radius.md.dp),
+            )
+            .clickable { onPick(key) }
+            .padding(vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            Modifier
+                .size(30.dp)
+                .clip(CircleShape)
+                .background(bg)
+                .border(1.dp, pal.border, CircleShape),
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = label,
+            style = Type.numeric,
+            color = if (selected) pal.accent else pal.textSecondary,
+        )
+    }
+}
+
+/** One color dot in the selection pill: paper-yellow, green, blue, pink, or an underline. */
+@Composable
+private fun StyleDot(style: String, onClick: () -> Unit) {
+    val color = when (style) {
+        "green" -> Color(0xFF66CC66)
+        "blue" -> Color(0xFF609FFF)
+        "pink" -> Color(0xFFFF66A3)
+        "underline" -> Color(0xFFEDE7DD)
+        else -> Color(0xFFF3B93C)
+    }
+    Box(
+        Modifier
+            .size(28.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (style == "underline") {
+            Text(
+                text = "U",
+                color = color,
+                style = Type.body,
+                textDecoration = TextDecoration.Underline,
+            )
+        } else {
+            Box(
+                Modifier
+                    .size(17.dp)
+                    .clip(CircleShape)
+                    .background(color),
+            )
+        }
     }
 }
 
@@ -1009,13 +1433,74 @@ private fun ModeCard(
     }
 }
 
+/** One tight speed chip for automatic page turning. */
+@Composable
+private fun AutoCard(
+    selected: Boolean,
+    title: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val pal = palette
+    Row(
+        modifier
+            .clip(RoundedCornerShape(Radius.md.dp))
+            .background(if (selected) pal.accentSubtle else pal.surfaceRaised)
+            .border(
+                width = if (selected) 1.5.dp else 1.dp,
+                color = if (selected) pal.accent else pal.borderSubtle,
+                shape = RoundedCornerShape(Radius.md.dp),
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = title,
+            style = Type.body,
+            color = if (selected) pal.text else pal.textSecondary,
+            maxLines = 1,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.weight(1f),
+        )
+        if (selected) {
+            Icon(
+                painterResource(R.drawable.ic_r_check),
+                null,
+                tint = pal.accent,
+                modifier = Modifier.size(13.dp),
+            )
+        }
+    }
+}
+
 private fun formatTime(t: Long): String =
     SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(t))
+
+/** The list-tint that shows a highlight's color inside the annotation panel. */
+private fun annoColor(style: String, pal: com.zhijian.reading.ui.theme.Palette): Color =
+    if (pal.dark) {
+        when (style) {
+            "green" -> Color(0x2666CC66)
+            "blue" -> Color(0x26609FFF)
+            "pink" -> Color(0x26FF66A3)
+            "underline" -> pal.accentSubtle
+            else -> Color(0x26F3B93C)
+        }
+    } else {
+        when (style) {
+            "green" -> Color(0xFFDFF0DC)
+            "blue" -> Color(0xFFDCE8FA)
+            "pink" -> Color(0xFFFAE0EA)
+            "underline" -> pal.accentSubtle
+            else -> Color(0xFFFAF0D7)
+        }
+    }
 
 /** A plain text sheet of every annotation on the book, for sharing out. */
 private fun exportText(
     book: Book,
-    toc: List<EpubReader.TocItem>,
+    toc: List<TocItem>,
     annos: List<Annotation>,
     strings: com.zhijian.reading.ui.AppStrings,
 ): String {

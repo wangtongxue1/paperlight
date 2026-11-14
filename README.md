@@ -26,8 +26,8 @@ A calm, fast Android e-book reader that reads and writes **calibre libraries**, 
 - **三种取书方式**
   - **内置公版典籍**：《道德经》《论语》《庄子》《孙子兵法》《三字经》《千字文》《唐诗选》《宋词选》《红楼梦》《三国演义》《水浒传》《西游记》《古文观止选》《山海经选》《世说新语选》——真实节选，无需联网；
   - **链接导入**：粘贴 EPUB / PDF / TXT 直链，下载即入库（自动读取书名、作者、封面）；
-  - **本机导入**：应用内文件浏览，SAF 一次授权，批量导入 EPUB、PDF、MOBI、AZW3、TXT。
-- **阅读器**：EPUB 章节渲染、字号缩放、进度记忆（「阅读」页显示继续阅读）。
+  - **本机导入**：应用内文件浏览，SAF 一次授权，批量导入 EPUB、PDF、TXT、MOBI、HTML、MD、FB2（自动读取书名、作者、封面）。
+- **阅读器**：EPUB / PDF / TXT / MOBI / HTML / MD / FB2 渲染、全文查找、自动翻页、字号缩放、进度记忆（「阅读」页显示继续阅读）。
 - **完整元数据**：书名、作者、丛书、出版社、日期、语言、ISBN、标签、评分、简介，均可编辑；封面可更换。
 - **界面语言**：默认中文，内置 English；「我的」页可切换或跟随系统。
 - **深浅两套主题**：纸感浅色（默认）与暖墨深色。
@@ -87,7 +87,14 @@ app/src/main/java/com/zhijian/reading/
 │   ├── PdfMake.kt         # 生成样书 PDF
 │   ├── SampleLibrary.kt   # 内置公版中文典籍
 │   └── Settings.kt        # 偏好与阅读进度
-├── reader/EpubReader.kt   # EPUB → HTML 阅读渲染
+├── reader/               # 多格式解码 → 统一 BookContent
+│   ├── BookContent.kt    # 内容模型 + TocItem
+│   ├── PageTemplate.kt   # 共享 HTML 版式外壳（主题 CSS 变量）
+│   ├── BookDecoder.kt    # 按扩展名分发
+│   ├── EpubReader.kt     # EPUB
+│   ├── MobiReader.kt     # MOBI/AZW(KF7)：PalmDB + MOBI/EXTH + PalmDOC 解压
+│   ├── TxtReader.kt      # TXT：编码嗅探 + 章节切分
+│   └── HtmlReader.kt     # HTML / MD / FB2
 └── ui/
     ├── L10n.kt            # 中文 / English 文案
     ├── LibraryViewModel.kt
@@ -99,7 +106,7 @@ app/src/main/java/com/zhijian/reading/
 ## 已知限制
 
 - 国内书源没有公开、合法的下载 API，取书以「内置公版中文典籍 + 链接导入 + 本机导入」为主。
-- MOBI/AZW3/PDF/TXT 交给系统应用打开，本应用的阅读器只做 EPUB。
+- 应用内阅读支持 EPUB、PDF、TXT、MOBI、HTML、MD、FB2；AZW3（纯 KF8）等 HUFF/CDIC 压缩或加密的 MOBI 会交给系统应用打开。
 - calibre 的 `title_sort`/`uuid4` 触发器依赖 calibre 自带的 SQL 函数，这里建表时不带触发器，写入时自行处理排序字段。
 
 ## 参与贡献

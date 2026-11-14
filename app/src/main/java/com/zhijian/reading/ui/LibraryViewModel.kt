@@ -248,7 +248,14 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
         val ext = name.substringAfterLast('.', "").uppercase()
         if (ext !in SUPPORTED_FORMATS) return@withContext false
         runCatching {
-            val meta = if (ext == "EPUB") EpubMeta.parse(file) else null
+            // Metadata where the format carries it; the file name carries
+            // the rest, so TXT/MD/HTML books still land with a real title.
+            val meta = when (ext) {
+                "EPUB" -> EpubMeta.parse(file)
+                "MOBI" -> com.zhijian.reading.reader.MobiReader.metadata(file)
+                "FB2" -> com.zhijian.reading.reader.HtmlReader.fb2Metadata(file)
+                else -> null
+            }
             val title = meta?.title?.takeIf { it.isNotBlank() }
                 ?: EpubMeta.fileTitleFallback(name)
             val authors = meta?.authors?.takeIf { it.isNotEmpty() } ?: listOf("Unknown")
@@ -365,7 +372,8 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
 
     companion object {
 
-        val SUPPORTED_FORMATS = setOf("EPUB", "PDF", "MOBI", "AZW3", "AZW", "TXT")
+        /** Only formats the reader can actually open in-app. */
+        val SUPPORTED_FORMATS = setOf("EPUB", "PDF", "TXT", "HTML", "HTM", "MD", "FB2", "MOBI")
 
         /** Filters, searches and orders a list of books. */
         fun applyQuery(books: List<Book>, q: Query, reading: Set<Long> = emptySet()): List<Book> {

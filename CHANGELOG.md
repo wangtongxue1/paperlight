@@ -1,14 +1,36 @@
 # 更新日志 · Changelog
 
-纸间阅读 **Paperlight** —— Apple Books 风格的 Android EPUB 阅读器。
+纸间阅读 **Paperlight** —— Apple Books 风格的 Android 阅读器（EPUB / PDF / TXT / MOBI / HTML / MD / FB2）。
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [未发布]
+## [1.5.0] - 2026-11-14
+
+### 新增
+
+- **多格式阅读**（重要）：阅读器不再只认 EPUB——TXT、HTML、MD、FB2、MOBI 全部在应用内渲染，统一走 `BookContent` 内容模型与 `PageTemplate` 版式外壳，各格式共享同一套主题、目录与翻页体验
+  - **TXT**：BOM → 严格 UTF-8 → GB18030 → Latin-1 逐级编码嗅探；按「第 X 章 / 卷 / 回 / 序章」等短行标题自动分章
+  - **HTML / MD**：HTML 直渲；Markdown 子集（标题、列表、引用、代码块、粗斜体）转 HTML
+  - **FB2**：完整解析 FictionBook 章节结构与 `<binary>` 内嵌图片（data URI）
+  - **MOBI**：PalmDB 记录表 + MOBI/EXTH 头解析（书名、作者、出版社、简介、封面），PalmDOC LZ77 解压，`recindex` 图片重写为本地文件
+- **PDF 阅读页**：`PdfRenderer` + LruCache 逐页渲染，左右点击翻页、中央呼出菜单、右侧可拖拽跳页进度条、页码角标
+- **全文查找**：阅读页顶栏新增查找入口，支持上一处 / 下一处跳转与命中高亮
+- **自动翻页**：界面面板新增自动翻页卡片（关 / 慢 / 中 / 快），触屏即停
+- **分页页脚**：分页模式下隐藏菜单时，底部静默显示「第 N / M 页」与当前章节名
+- **目录跟随**：打开目录面板自动滚动到当前章节并高亮
 
 ### 修复
 
+- **MOBI 中文正文乱码**（重要）：真实出版书（如 calibre 转换的《人间草木》）解压后全是乱码。原因有二：① 回溯距离公式写错——正确的是 `c=(b<<8)|next, dist=(c>>3)&0x7FF, len=(c&7)+3`；② MOBI v5+ 的文本记录带 extra data flags（rec0[0xF2]）指定的 N 条 varint 尾随条目 + 多字节跨记录重叠字节，解压前必须裁剪，否则每条记录结尾都被当压缩数据处理。修后真书 316KB 全文 367842 字节一字不差解出，零乱码
+- **FB2 导入后无法打开**：XmlPullParser 的输入流在解析前被关闭导致半读；改为内存副本再解析
+- **导入元数据缺失**：MOBI / FB2 导入时自动读取书名、作者、出版社、简介与封面
 - **分页错位**（重要）：左右翻页的列宽计算把视口宽当作列宽，忽略了容器内边距，导致每翻一页偏移多出 44px——页数越多错位越远（真机上第 93 页累计偏移约 10 屏，出现"两栏各半"与横向滚动条）。现在列宽按容器内容宽计算，翻页偏移、页码统计、进度换算全部与实际列步进对齐
 - 禁用分页视图的手动横向滑动（此前停在两列中间会出现裁切画面），翻页统一走左右点击
+
+### 构建
+
+- **工具链锁定兼容组合**：AGP 8.13.0 → **8.7.3**，Gradle wrapper 8.14.6 → **8.11.1**，配合本地 JDK 21 全程离线可构建
+- **移除联网依赖**：删除 foojay toolchain resolver 插件与 `gradle-daemon-jvm.properties`（不再要求联网下载 JBR）
+- **清理无用依赖**：移除 `androidx.documentfile`、`coil-svg`、`material-icons-extended`（仅保留实际使用的 coil-compose）
 
 ### 新增
 

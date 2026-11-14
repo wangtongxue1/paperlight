@@ -54,6 +54,26 @@ class Settings(context: Context) {
         get() = p.getFloat("readerFontScale", 1f)
         set(v) = p.edit().putFloat("readerFontScale", v).apply()
 
+    /** Reader page theme: "light" (default), "sepia", "gray" or "dark". */
+    var readerTheme: String
+        get() = p.getString("readerTheme", "light") ?: "light"
+        set(v) = p.edit().putString("readerTheme", v).apply()
+
+    /** Reader body line height, 1 = the book's own. */
+    var readerLineHeight: Float
+        get() = p.getFloat("readerLineHeight", 1.78f)
+        set(v) = p.edit().putFloat("readerLineHeight", v).apply()
+
+    /** Reader text face: "serif" (default) or "sans". */
+    var readerFontFamily: String
+        get() = p.getString("readerFontFamily", "serif") ?: "serif"
+        set(v) = p.edit().putString("readerFontFamily", v).apply()
+
+    /** Reader screen brightness, 0..1; 0 follows the system. */
+    var readerBrightness: Float
+        get() = p.getFloat("readerBrightness", 0f)
+        set(v) = p.edit().putFloat("readerBrightness", v).apply()
+
     // ---- Reading progress -------------------------------------------------
 
     fun progress(bookId: Long): Float = reading.getFloat("p$bookId", 0f)
