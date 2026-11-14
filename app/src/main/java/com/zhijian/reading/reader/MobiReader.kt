@@ -48,18 +48,17 @@ object MobiReader {
             // The body keeps chapters only: a page that is just the book's
             // own table of contents (heading 目录 + a wall of links) lives
             // in the TOC panel, not in the reading flow.
-            val chunks = mobi.html
-                .split(Regex("<mbp:pagebreak[^>]*/?>", RegexOption.IGNORE_CASE))
-                .map { it.replace(Regex("<mbp:(header|footer)[\\s\\S]*?</mbp:(header|footer)>", RegexOption.IGNORE_CASE), "").trim() }
-                .filter { it.isNotBlank() }
+            val chunks = splitChunks(mobi.htmlBytes, mobi.encoding)
+                .filter { it.text.isNotBlank() && !isTocPage(it.text) }
 
             val sections = chunks.mapIndexed { i, chunk ->
-                PageTemplate.chapter(i, rewritten(chunk, imageUris))
+                PageTemplate.chapter(i, rewritten(chunk.text, imageUris))
             }
             if (sections.isEmpty()) return null
             sections.forEach { body.append(it) }
 
-            val toc = buildToc(chunks)
+            val toc = buildToc(mobi.htmlBytes, chunks, mobi.encoding)
+                ?: buildToc(chunks.map { it.text })
             BookContent(
                 html = PageTemplate.wrap(mobi.title, body.toString(), theme),
                 baseUrl = imgDir.toURI().toString(),
@@ -101,7 +100,7 @@ object MobiReader {
         val authors: List<String>,
         val exth: Map<Long, ByteArray>,
         val firstImageIndex: Int,
-        val html: String,
+        val htmlBytes: ByteArray,
     ) {
         val recordCount: Int get() = recordOffsets.size - 1
     }
@@ -240,8 +239,10 @@ object MobiReader {
                 }
                 out.write(plain, 0, plain.size)
             }
-            var text = cs.decode(out.toByteArray())
-            if (textLength > 0 && textLength <= text.length) text = text.substring(0, textLength)
+            // Keep the decompressed text as raw bytes: the MOBI TOC's
+            // filepos anchors are byte offsets into exactly this stream.
+            var bytes = out.toByteArray()
+            if (textLength > 0 && textLength <= bytes.size) bytes = bytes.copyOf(textLength)
             if (title.isBlank()) title = EpubMeta.fileTitleFallback(file.nameWithoutExtension)
 
             Mobi(
@@ -254,7 +255,7 @@ object MobiReader {
                 authors = authors,
                 exth = exth,
                 firstImageIndex = firstImageIndex,
-                html = text,
+                htmlBytes = bytes,
             )
         }
     }.getOrNull()
@@ -382,6 +383,100 @@ object MobiReader {
         return text.startsWith("目录")
     }
 
+    /** One pagebreak-delimited chunk: its byte range plus the decoded text. */
+    private class RawChunk(val start: Int, val text: String)
+
+    /**
+     * Split on `<mbp:pagebreak>` at the byte level so each chunk keeps the
+     * offset it is cited by in the TOC's filepos anchors. mbp header/footer
+     * blocks (page furniture Kindle injects per page) are stripped here.
+     */
+    private fun splitChunks(raw: ByteArray, cs: CharsetHandle): List<RawChunk> {
+        val needle = "<mbp:pagebreak".toByteArray()
+        val chunks = mutableListOf<RawChunk>()
+        var start = 0
+        var i = 0
+        while (i < raw.size) {
+            if (matchesAt(raw, i, needle)) {
+                // Swallow the rest of the tag (attributes, slash, bracket).
+                var j = i + needle.size
+                while (j < raw.size && raw[j] != '>'.code.toByte()) j++
+                val tagEnd = if (j < raw.size) j + 1 else j
+                chunks += decodeChunk(raw, start, i, cs)
+                start = tagEnd
+                i = tagEnd
+            } else {
+                i++
+            }
+        }
+        chunks += decodeChunk(raw, start, raw.size, cs)
+        return chunks
+    }
+
+    private fun decodeChunk(raw: ByteArray, from: Int, to: Int, cs: CharsetHandle): RawChunk {
+        val text = cs.decode(raw.copyOfRange(from, to))
+            .replace(
+                Regex("<mbp:(header|footer)[\\s\\S]*?</mbp:(header|footer)>", RegexOption.IGNORE_CASE),
+                "",
+            )
+            .trim()
+        return RawChunk(from, text)
+    }
+
+    private fun matchesAt(raw: ByteArray, at: Int, needle: ByteArray): Boolean {
+        if (at + needle.size > raw.size) return false
+        for (k in needle.indices) {
+            if ((raw[at + k].toInt() and 0xDF) != (needle[k].toInt() and 0xDF)) return false
+        }
+        return true
+    }
+
+    /**
+     * The TOC the way readers actually show it: every `<a filepos=N>title</a>`
+     * anchor maps to the chunk whose byte range contains N — real chapter
+     * titles, in book order, deduped per chunk. Falls back to the first
+     * heading heuristic when the book carries no usable anchors.
+     */
+    private fun buildToc(raw: ByteArray, chunks: List<RawChunk>, cs: CharsetHandle): List<TocItem>? {
+        if (chunks.isEmpty()) return null
+        val starts = chunks.map { it.start }
+        val toc = mutableListOf<TocItem>()
+        val seen = mutableSetOf<Int>()
+        val aTag = "<a".toByteArray()
+        val closeTag = "</a>".toByteArray()
+        var i = 0
+        while (i < raw.size) {
+            if (!matchesAt(raw, i, aTag)) { i++; continue }
+            var tagEnd = i
+            while (tagEnd < raw.size && raw[tagEnd] != '>'.code.toByte() && tagEnd - i < 512) tagEnd++
+            if (tagEnd >= raw.size) break
+            val tag = String(raw, i, tagEnd - i, Charsets.ISO_8859_1)
+            // filepos=<digits> (quotes optional in real files); parsed by hand
+            // — a compiled Regex here misfired on device for no visible reason.
+            val fp = tag.indexOf("filepos", ignoreCase = true)
+            val pos: Int? = if (fp < 0) null else {
+                var q = fp + 8
+                while (q < tag.length && (tag[q] == '=' || tag[q] == '"' || tag[q] == ' ')) q++
+                var e = q
+                while (e < tag.length && tag[e].isDigit()) e++
+                if (e > q) tag.substring(q, e).toIntOrNull() else null
+            }
+            if (pos == null) { i = tagEnd + 1; continue }
+            var close = indexOfFrom(raw, closeTag, tagEnd)
+            if (close < 0) close = minOf(tagEnd + 1, raw.size)
+            val title = PageTemplate.unescape(PageTemplate.stripTags(cs.decode(raw.copyOfRange(tagEnd + 1, close))))
+                .replace(Regex("\\s+"), " ").trim()
+            // The chunk holding the target: last one that starts at or before it.
+            var idx = -1
+            for (k in starts.indices) if (starts[k] <= pos) idx = k else break
+            if (idx >= 0 && title.isNotBlank() && title.length <= 60 && seen.add(idx)) {
+                toc += TocItem(idx, title)
+            }
+            i = close + closeTag.size
+        }
+        return toc.takeIf { it.size >= 3 }
+    }
+
     /** One TOC entry per pagebreak chapter, titled by its first heading/text. */
     private fun buildToc(chunks: List<String>): List<TocItem> {
         val toc = mutableListOf<TocItem>()
@@ -400,8 +495,11 @@ object MobiReader {
         return toc
     }
 
-    private fun indexOf(data: ByteArray, needle: ByteArray): Int {
-        outer@ for (i in 0..data.size - needle.size) {
+    private fun indexOf(data: ByteArray, needle: ByteArray): Int = indexOfFrom(data, needle, 0)
+
+    private fun indexOfFrom(data: ByteArray, needle: ByteArray, from: Int): Int {
+        if (from < 0) return -1
+        outer@ for (i in from..data.size - needle.size) {
             for (j in needle.indices) if (data[i + j] != needle[j]) continue@outer
             return i
         }

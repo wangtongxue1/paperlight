@@ -5,7 +5,6 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import java.io.File
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.UUID
@@ -168,7 +167,7 @@ class Library(context: Context, val root: File) {
                 put("title", b.title)
                 put("sort", b.sort.ifBlank { b.title })
                 put("author_sort", b.authors.firstOrNull()?.let { "$it" } ?: "Unknown")
-                put("pubdate", if (b.pubdate.isBlank()) "2000-01-01" else b.pubdate)
+                put("pubdate", b.pubdate)
                 put("series_index", b.seriesIndex)
                 put("has_cover", if (b.hasCover) 1 else 0)
                 put("last_modified", now)
@@ -254,7 +253,7 @@ class Library(context: Context, val root: File) {
             put("sort", title)
             put("author_sort", authors.firstOrNull() ?: "Unknown")
             put("timestamp", now)
-            put("pubdate", pubdate.ifBlank { LocalDate.now().toString() })
+            put("pubdate", pubdate)
             put("series_index", seriesIndex)
             put("path", "")
             put("uuid", UUID.randomUUID().toString())

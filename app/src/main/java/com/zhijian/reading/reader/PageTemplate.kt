@@ -43,18 +43,17 @@ object PageTemplate {
               :root { color-scheme: light; }
               html.pl-dark { color-scheme: dark; }
               body {
-                margin: 0; padding: 44px 22px 64px;
+                margin: 0; padding: 44px 24px 64px;
                 background: var(--bg); color: var(--ink);
-                font-family: Georgia, 'Noto Serif', 'Songti SC', serif;
-                font-size: 17px; line-height: 1.78;
+                font-family: -apple-system, 'Noto Sans', 'Microsoft YaHei', sans-serif;
+                font-size: 19px; line-height: 1.9;
                 -webkit-text-size-adjust: 100%;
                 word-wrap: break-word;
               }
-              section.chapter + section.chapter { margin-top: 2.2em; padding-top: 1.6em; border-top: 1px solid var(--rule); }
-              h1, h2, h3, h4 { font-family: -apple-system, 'Noto Sans', sans-serif; line-height: 1.32; margin: 1.6em 0 .8em; }
-              h1 { font-size: 1.42em; } h2 { font-size: 1.22em; } h3 { font-size: 1.08em; }
-              p { margin: 0 0 1em; text-indent: 1.5em; text-align: justify; }
-              p:first-of-type, h1 + p, h2 + p, h3 + p { text-indent: 0; }
+              section.chapter + section.chapter { margin-top: 2.4em; padding-top: 1.8em; border-top: 1px solid var(--rule); }
+              h1, h2, h3, h4 { line-height: 1.32; margin: 1.6em 0 .8em; font-weight: 600; }
+              h1 { font-size: 1.35em; } h2 { font-size: 1.18em; } h3 { font-size: 1.06em; }
+              p { margin: 0 0 1.3em; text-indent: 2em; text-align: justify; }
               img { max-width: 100%; height: auto; display: block; margin: 1.2em auto; }
               blockquote { margin: 1em 0; padding-left: 1em; border-left: 2px solid var(--rule); color: var(--dim); }
               a { color: var(--link); text-decoration: none; }

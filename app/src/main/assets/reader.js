@@ -578,7 +578,7 @@
   };
 
   R.setFontScale = function (s) {
-    body.style.fontSize = (17 * s) + 'px';
+    body.style.fontSize = (19 * s) + 'px';
     if (R.mode === 'paged' && pager) { layout(); gotoRatio(R.ratio); }
     setTimeout(postMetrics, 80);
   };

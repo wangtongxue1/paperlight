@@ -252,7 +252,6 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
                                 pendingCover = book
                                 coverLauncher.launch("image/*")
                             },
-                            onRate = { rating -> scope.launch { vm.rate(book, rating) } },
                             onAuthor = { name ->
                                 vm.setFilter(com.zhijian.reading.data.Filter.ByAuthor(name))
                                 nav.popBackStack("library", inclusive = false)

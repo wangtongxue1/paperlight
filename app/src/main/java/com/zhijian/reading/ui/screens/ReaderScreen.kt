@@ -120,6 +120,14 @@ private data class PageInfo(
 
 private enum class Panel { Toc, Notes, Progress, Bright, Font }
 
+/** The paper color of a reading theme, as an ARGB int for the WebView. */
+private fun themeBgColor(theme: String): Int = when (theme) {
+    "dark" -> 0xFF111110.toInt()
+    "sepia" -> 0xFFF7EFE0.toInt()
+    "gray" -> 0xFFE3E1DC.toInt()
+    else -> 0xFFFFFFFF.toInt()
+}
+
 /**
  * Colors for the bottom-sheet panels. They follow the *page* theme rather
  * than the app theme, 微信读书-style: a night paper gets night panels.
@@ -230,9 +238,18 @@ fun ReaderScreen(
             .getOrDefault("")
     }
 
+    // Opaque, theme-matched WebView background: a TRANSPARENT WebView under
+    // floating chrome composites black on some devices (the page "goes dark"
+    // whenever the bars show). The HTML body paints the same color anyway.
+    val webViewBg: Int = when (appSettings.readerTheme) {
+        "dark" -> 0xFF111110.toInt()
+        "sepia" -> 0xFFF7EFE0.toInt()
+        "gray" -> 0xFFE3E1DC.toInt()
+        else -> 0xFFFFFFFF.toInt()
+    }
     val webView = remember {
         WebView(context).apply {
-            setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            setBackgroundColor(webViewBg)
             settings.apply {
                 javaScriptEnabled = true
                 allowFileAccess = true
@@ -409,6 +426,7 @@ fun ReaderScreen(
     LaunchedEffect(theme) {
         if (engineReady) {
             runJs("window.__pl.setTheme('$theme')")
+            webView.setBackgroundColor(themeBgColor(theme))
             appSettings.readerTheme = theme
         }
     }

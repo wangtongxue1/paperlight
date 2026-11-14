@@ -43,7 +43,6 @@ import com.zhijian.reading.ui.components.FormatBadge
 import com.zhijian.reading.ui.components.Hairline
 import com.zhijian.reading.ui.components.InfoRow
 import com.zhijian.reading.ui.components.Overline
-import com.zhijian.reading.ui.components.Stars
 import com.zhijian.reading.ui.components.TagPill
 import com.zhijian.reading.ui.strings
 import com.zhijian.reading.ui.theme.Radius
@@ -63,7 +62,6 @@ fun DetailScreen(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onPickCover: () -> Unit,
-    onRate: (Int) -> Unit,
     onAuthor: (String) -> Unit,
     onSeries: (String) -> Unit,
     onTag: (String) -> Unit,
@@ -138,17 +136,14 @@ fun DetailScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp),
         ) {
-            // The jacket on its stage.
+            // The jacket, centered, on the page itself — no stage card.
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .padding(top = 6.dp)
-                    .clip(RoundedCornerShape(Radius.lg.dp))
-                    .background(pal.subtle)
-                    .padding(vertical = 26.dp),
+                    .padding(top = 6.dp, bottom = 4.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                BookCover(book, root, width = 156.dp, height = 234.dp)
+                BookCover(book, root, width = 148.dp, height = 222.dp)
             }
 
             Spacer(Modifier.height(20.dp))
@@ -178,12 +173,7 @@ fun DetailScreen(
                     }
                 }
             }
-            Spacer(Modifier.height(10.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                Stars(rating = book.rating, starSize = 15.dp, gap = 2.dp, onRate = onRate)
-            }
-
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(16.dp))
 
             // Read: one file straight away, several from a menu.
             if (book.formats.isNotEmpty()) {
@@ -279,12 +269,17 @@ fun DetailScreen(
                         onSeries(book.series!!)
                     }
                 }
-                InfoRow(strings.publisher, book.publisher.orEmpty())
-                InfoRow(strings.published, book.pubdate, mono = true)
-                InfoRow(
-                    strings.language,
-                    book.languages.joinToString(", ") { languageName(strings, it) },
-                )
+                // Only the rows the file actually carries: placeholder-free.
+                if (!book.publisher.isNullOrBlank()) InfoRow(strings.publisher, book.publisher)
+                if (book.pubdate.isNotBlank() && book.pubdate != "2000-01-01") {
+                    InfoRow(strings.published, book.pubdate, mono = true)
+                }
+                if (book.languages.isNotEmpty()) {
+                    InfoRow(
+                        strings.language,
+                        book.languages.joinToString(", ") { languageName(strings, it) },
+                    )
+                }
                 book.identifiers.forEach { (k, v) ->
                     InfoRow(
                         if (k.equals("isbn", true)) strings.isbn else k.replaceFirstChar { it.uppercase() },
