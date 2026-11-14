@@ -14,19 +14,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -38,23 +34,26 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.zhijian.reading.data.Book
-import com.zhijian.reading.data.Counts
 import com.zhijian.reading.data.Filter
-import com.zhijian.reading.data.SortKey
 import com.zhijian.reading.ui.LibraryViewModel
-import com.zhijian.reading.ui.components.BookRow
 import com.zhijian.reading.ui.components.EmptyState
-import com.zhijian.reading.ui.components.Pill
 import com.zhijian.reading.ui.components.ShelfGrid
 import com.zhijian.reading.ui.strings
 import com.zhijian.reading.ui.theme.Radius
 import com.zhijian.reading.ui.theme.Type
 import com.zhijian.reading.ui.theme.palette
 import kotlinx.coroutines.launch
+import java.text.Collator
+import java.util.Locale
 
 /** The counted lists the browse pages show. */
 enum class BrowseKind { Authors, Series, Tags, Publishers }
 
+/**
+ * The shelf, 微信读书 style: one search pill up top, the 书架 row with
+ * 导入 / 选择, a row of sort tabs, and the covers in a fixed three-column
+ * grid with a small progress chip pinned to each started book.
+ */
 @Composable
 fun LibraryScreen(
     vm: LibraryViewModel,
@@ -66,11 +65,7 @@ fun LibraryScreen(
 ) {
     val pal = palette
     val strings = strings
-    var searching by remember { mutableStateOf(false) }
-    var menu by remember { mutableStateOf(false) }
     val shown = remember(vm.books, vm.query, vm.readingIds) { vm.shown() }
-    val counts = remember(vm.books, vm.readingIds) { vm.counts() }
-    val chips = remember(vm.books) { vm.chips() }
 
     // Long-press selection: pick covers one by one, then remove them in bulk.
     var selecting by remember { mutableStateOf(false) }
@@ -91,135 +86,30 @@ fun LibraryScreen(
 
     val allShownSelected = shown.isNotEmpty() && selectedIds.containsAll(shown.map { it.id })
 
+    // The sort tabs reorder locally: 默认 follows the library order, 更新 is
+    // newest import first, 进度 puts books in progress on top, 书名 uses the
+    // Chinese collation.
+    var sortTab by remember { mutableIntStateOf(0) }
+    val sorted = remember(shown, sortTab, vm.progress) {
+        when (sortTab) {
+            1 -> shown.sortedByDescending { it.timestamp }
+            2 -> shown.sortedByDescending { vm.progress[it.id] ?: 0f }
+            3 -> {
+                val collator = Collator.getInstance(Locale.CHINA)
+                shown.sortedWith(compareBy(collator) { it.title })
+            }
+            else -> shown
+        }
+    }
+
     Column(
         Modifier
             .fillMaxSize()
             .background(pal.bgApp),
     ) {
-        if (!selecting) {
-        // The large title bar, the Apple Books way.
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(start = 20.dp, end = 12.dp, top = 14.dp, bottom = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = titleOf(strings, vm.query.filter),
-                    style = Type.display.copy(fontSize = 28.sp),
-                    color = pal.text,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = strings.bookCount(shown.size),
-                    style = Type.small,
-                    color = pal.textTertiary,
-                )
-            }
-            Box(
-                Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(Radius.md.dp))
-                    .clickable { searching = !searching },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    androidx.compose.ui.res.painterResource(
-                        if (searching) com.zhijian.reading.R.drawable.ic_r_close
-                        else com.zhijian.reading.R.drawable.ic_a_search,
-                    ),
-                    null,
-                    tint = pal.icon,
-                    modifier = Modifier.size(21.dp),
-                )
-            }
-            Box(
-                Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(Radius.md.dp))
-                    .clickable { menu = true },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_a_more),
-                    null,
-                    tint = pal.icon,
-                    modifier = Modifier.size(21.dp),
-                )
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    DropdownMenuItem(
-                        leadingIcon = {
-                            Icon(
-                                androidx.compose.ui.res.painterResource(
-                                    if (vm.viewMode == 0) com.zhijian.reading.R.drawable.ic_a_list
-                                    else com.zhijian.reading.R.drawable.ic_a_grid,
-                                ),
-                                null,
-                            )
-                        },
-                        text = { Text(if (vm.viewMode == 0) strings.viewList else strings.viewShelf) },
-                        onClick = {
-                            vm.chooseViewMode(if (vm.viewMode == 0) 1 else 0)
-                            menu = false
-                        },
-                    )
-                    DropdownMenuItem(
-                        leadingIcon = {
-                            Icon(androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_a_sort), null)
-                        },
-                        text = { Text(strings.sortBy + " · " + sortLabel(strings, vm.query.sort)) },
-                        onClick = {
-                            val keys = SortKey.entries
-                            val next = keys[(keys.indexOf(vm.query.sort) + 1) % keys.size]
-                            vm.setSort(next)
-                            menu = false
-                        },
-                    )
-                    DropdownMenuItem(
-                        leadingIcon = {
-                            Icon(androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_a_sort), null)
-                        },
-                        text = { Text(if (vm.query.descending) strings.sortDesc else strings.sortAsc) },
-                        onClick = {
-                            vm.toggleSortDirection()
-                            menu = false
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(strings.browseAuthors) },
-                        onClick = { menu = false; onBrowse(BrowseKind.Authors) },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(strings.browseSeries) },
-                        onClick = { menu = false; onBrowse(BrowseKind.Series) },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(strings.browseTags) },
-                        onClick = { menu = false; onBrowse(BrowseKind.Tags) },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(strings.browsePublishers) },
-                        onClick = { menu = false; onBrowse(BrowseKind.Publishers) },
-                    )
-                    DropdownMenuItem(
-                        leadingIcon = {
-                            Icon(androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_a_add), null)
-                        },
-                        text = { Text(strings.addBooks) },
-                        onClick = { menu = false; onImport() },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(strings.settingsTitle) },
-                        onClick = { menu = false; onOpenSettings() },
-                    )
-                }
-            }
-        }
-        } else {
-            // Selection mode replaces the title bar: exit, count, select
-            // all, and the delete action.
+        if (selecting) {
+            // Selection mode replaces the header: exit, count, select all,
+            // and the delete action.
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -279,15 +169,14 @@ fun LibraryScreen(
                     )
                 }
             }
-        }
-
-        if (searching) {
+        } else {
+            // Search pill, always visible, 微信读书 style.
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 8.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
                     .height(40.dp)
-                    .background(pal.surface, RoundedCornerShape(Radius.md.dp))
+                    .background(pal.surface, RoundedCornerShape(20.dp))
                     .padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -322,48 +211,62 @@ fun LibraryScreen(
                     )
                 }
             }
-        }
 
-        // Filters: the four shelf views as one steady segmented row, the
-        // tags as a second scrolling row of their own.
-        val filterIndex = when (vm.query.filter) {
-            is Filter.RecentlyAdded -> 1
-            is Filter.Reading -> 2
-            is Filter.Favorites -> 3
-            else -> 0
-        }
-        com.zhijian.reading.ui.components.SegmentRow(
-            selected = filterIndex,
-            options = listOf(strings.filterAll, strings.titleRecent, strings.titleReading, strings.titleFavorites),
-            onSelect = { i ->
-                vm.setFilter(
-                    when (i) {
-                        1 -> Filter.RecentlyAdded
-                        2 -> Filter.Reading
-                        3 -> Filter.Favorites
-                        else -> Filter.All
-                    },
-                )
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 6.dp),
-        )
-        if (chips.isNotEmpty()) {
-            val chipList = chips.map { tag ->
-                Chip(tag, vm.query.tagChip == tag) {
-                    vm.setTagChip(if (vm.query.tagChip == tag) null else tag)
-                }
-            }
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            // 书架 row: the big title on the left, 导入 / 选择 on the right.
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = 20.dp, end = 16.dp, top = 6.dp, bottom = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                items(chipList) { chip ->
-                    Pill(
-                        text = chip.label,
-                        selected = chip.selected,
-                        onClick = chip.onClick,
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = strings.shelfTitle,
+                        style = Type.display.copy(fontSize = 24.sp),
+                        color = pal.text,
+                    )
+                    Text(
+                        text = strings.bookCount(shown.size),
+                        style = Type.small,
+                        color = pal.textTertiary,
+                    )
+                }
+                ShelfAction(
+                    iconRes = com.zhijian.reading.R.drawable.ic_a_add,
+                    label = strings.shelfImport,
+                    onClick = onImport,
+                )
+                Spacer(Modifier.width(18.dp))
+                ShelfAction(
+                    iconRes = com.zhijian.reading.R.drawable.ic_r_check,
+                    label = strings.shelfSelect,
+                    onClick = { selecting = true },
+                )
+            }
+
+            // Sort tabs: 默认 / 更新 / 进度 / 书名.
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(22.dp),
+            ) {
+                val tabs = listOf(
+                    strings.shelfSortDefault,
+                    strings.shelfSortUpdated,
+                    strings.shelfSortProgress,
+                    strings.shelfSortTitle,
+                )
+                tabs.forEachIndexed { i, label ->
+                    val active = i == sortTab
+                    Text(
+                        text = label,
+                        style = if (active) Type.title else Type.body,
+                        color = if (active) pal.text else pal.textTertiary,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(Radius.sm.dp))
+                            .clickable { sortTab = i }
+                            .padding(horizontal = 2.dp, vertical = 4.dp),
                     )
                 }
             }
@@ -388,9 +291,10 @@ fun LibraryScreen(
                 body = strings.emptyNoMatchBody(vm.query.text),
             )
 
-            vm.viewMode == 0 -> ShelfGrid(
-                books = shown,
+            else -> ShelfGrid(
+                books = sorted,
                 root = vm.library.root,
+                progress = vm.progress,
                 selectedId = lastOpened,
                 onSelect = { book ->
                     if (selecting) toggle(book.id) else onOpenBook(book)
@@ -400,22 +304,6 @@ fun LibraryScreen(
                 selectedIds = selectedIds,
                 modifier = Modifier.fillMaxSize(),
             )
-
-            else -> LazyColumn(Modifier.fillMaxSize()) {
-                items(shown, key = { it.id }) { book ->
-                    BookRow(
-                        book = book,
-                        root = vm.library.root,
-                        selected = book.id == lastOpened,
-                        progress = vm.progress[book.id] ?: 0f,
-                        selectionMode = selecting,
-                        isSelected = book.id in selectedIds,
-                        onClick = { if (selecting) toggle(book.id) else onOpenBook(book) },
-                        onLongClick = { enterSelection(book) },
-                    )
-                }
-                item { Spacer(Modifier.height(120.dp)) }
-            }
         }
     }
 
@@ -446,27 +334,32 @@ fun LibraryScreen(
     }
 }
 
-private class Chip(val label: String, val selected: Boolean, val onClick: () -> Unit)
-
+/** ⊕ 导入 / ✓ 选择 in the 书架 row: a quiet icon-plus-word action. */
 @Composable
-private fun titleOf(strings: com.zhijian.reading.ui.AppStrings, filter: Filter): String = when (filter) {
-    is Filter.All -> strings.titleAll
-    is Filter.RecentlyAdded -> strings.titleRecent
-    is Filter.Reading -> strings.titleReading
-    is Filter.Favorites -> strings.titleFavorites
-    is Filter.ByFormat -> strings.titleByFormat(filter.format)
-    is Filter.ByAuthor -> strings.titleByAuthor(filter.name)
-    is Filter.BySeries -> strings.titleBySeries(filter.name)
-    is Filter.ByTag -> strings.titleByTag(filter.name)
-    is Filter.ByPublisher -> strings.titleByPublisher(filter.name)
-}
-
-@Composable
-private fun sortLabel(strings: com.zhijian.reading.ui.AppStrings, key: SortKey): String = when (key) {
-    SortKey.DateAdded -> strings.sortDate
-    SortKey.Title -> strings.sortTitle
-    SortKey.Author -> strings.sortAuthor
-    SortKey.Rating -> strings.sortRating
-    SortKey.Size -> strings.sortSize
-    SortKey.Series -> strings.sortSeries
+private fun ShelfAction(
+    iconRes: Int,
+    label: String,
+    onClick: () -> Unit,
+) {
+    val pal = palette
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(Radius.md.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            androidx.compose.ui.res.painterResource(iconRes),
+            null,
+            tint = pal.textSecondary,
+            modifier = Modifier.size(17.dp),
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(
+            text = label,
+            style = Type.body,
+            color = pal.textSecondary,
+        )
+    }
 }

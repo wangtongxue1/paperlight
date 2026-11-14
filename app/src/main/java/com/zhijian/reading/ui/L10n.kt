@@ -46,6 +46,13 @@ interface AppStrings {
     val emptyNoMatch: String
     fun emptyNoMatchBody(query: String): String
     val addBooks: String
+    val shelfTitle: String
+    val shelfImport: String
+    val shelfSelect: String
+    val shelfSortDefault: String
+    val shelfSortUpdated: String
+    val shelfSortProgress: String
+    val shelfSortTitle: String
 
     // ---- reading now ----
     val continueReading: String
@@ -154,6 +161,7 @@ interface AppStrings {
     val readerNight: String
     val readerLight: String
     val readerCollapse: String
+    val jumpBookStart: String
     val readerColors: String
     fun readTo(pct: Int): String
     val autoTurn: String
@@ -254,6 +262,13 @@ object StringsZh : AppStrings {
     override val emptyNoMatch = "没有匹配的书"
     override fun emptyNoMatchBody(query: String) = "没有书名、作者或标签匹配“$query”。"
     override val addBooks = "导入书籍"
+    override val shelfTitle = "书架"
+    override val shelfImport = "导入"
+    override val shelfSelect = "选择"
+    override val shelfSortDefault = "默认"
+    override val shelfSortUpdated = "更新"
+    override val shelfSortProgress = "进度"
+    override val shelfSortTitle = "书名"
 
     override val continueReading = "继续阅读"
     override val recentlyAdded = "最近添加"
@@ -307,7 +322,7 @@ object StringsZh : AppStrings {
     override val readerFailed = "这本书无法打开"
     override val readerToc = "目录"
     override val readerAnnotations = "批注"
-    override val readerLook = "设置"
+    override val readerLook = "界面"
     override fun annotationCount(n: Int) = "批注 ($n)"
     override val noToc = "这本书没有目录信息。"
     override val noAnnotations = "还没有批注。选中正文文字即可划线并写下想法。"
@@ -357,6 +372,7 @@ object StringsZh : AppStrings {
     override val readerNight = "夜间"
     override val readerLight = "亮色"
     override val readerCollapse = "收起"
+    override val jumpBookStart = "跳到书首"
     override val readerColors = "颜色"
     override fun readTo(pct: Int) = "读到 ${pct}%"
     override val autoTurn = "自动翻页"
@@ -455,6 +471,13 @@ object StringsEn : AppStrings {
     override val emptyNoMatch = "No books match"
     override fun emptyNoMatchBody(query: String) = "Nothing here is titled, written or tagged “$query”."
     override val addBooks = "Add books"
+    override val shelfTitle = "Shelf"
+    override val shelfImport = "Import"
+    override val shelfSelect = "Select"
+    override val shelfSortDefault = "Default"
+    override val shelfSortUpdated = "Recent"
+    override val shelfSortProgress = "Progress"
+    override val shelfSortTitle = "Title"
 
     override val continueReading = "Continue Reading"
     override val recentlyAdded = "Recently Added"
@@ -508,7 +531,7 @@ object StringsEn : AppStrings {
     override val readerFailed = "This book could not be opened"
     override val readerToc = "Contents"
     override val readerAnnotations = "Notes"
-    override val readerLook = "Settings"
+    override val readerLook = "Display"
     override fun annotationCount(n: Int) = "Notes ($n)"
     override val noToc = "This book has no table of contents."
     override val noAnnotations = "No notes yet. Select text in the book to highlight it and write a note."
@@ -558,6 +581,7 @@ object StringsEn : AppStrings {
     override val readerNight = "Night"
     override val readerLight = "Light"
     override val readerCollapse = "Collapse"
+    override val jumpBookStart = "Jump to start"
     override val readerColors = "Colors"
     override fun readTo(pct: Int) = "Read to ${pct}%"
     override val autoTurn = "Auto page turn"

@@ -17,11 +17,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -34,9 +36,9 @@ import com.zhijian.reading.ui.theme.palette
 import java.io.File
 
 /**
- * The library as covers on paper: a calm grid, a soft shadow under every
- * jacket, the title and author printed underneath. The chosen book takes
- * a vermilion ring.
+ * The library as covers on paper, 微信读书 style: a fixed three-column
+ * grid, the title printed under each jacket, and a small progress chip
+ * pinned to the cover of every book the reader has started.
  */
 @Composable
 fun ShelfGrid(
@@ -47,19 +49,20 @@ fun ShelfGrid(
     onLongPress: (Book) -> Unit,
     selectionMode: Boolean = false,
     selectedIds: Set<Long> = emptySet(),
+    progress: Map<Long, Float> = emptyMap(),
     modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(modifier) {
-        val columns = (maxWidth.value / 118f).toInt().coerceIn(3, 5)
+        val columns = 3
         val colW = maxWidth / columns
-        val coverW = (colW * 0.86f).coerceIn(72.dp, 150.dp)
+        val coverW = (colW * 0.82f).coerceIn(72.dp, 150.dp)
         val coverH = coverW * 1.5f
-        val labelH = 52.dp
+        val labelH = 26.dp
 
         LazyVerticalGrid(
             columns = GridCells.Fixed(columns),
             modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(top = 4.dp, bottom = 32.dp),
+            contentPadding = PaddingValues(top = 6.dp, bottom = 32.dp),
         ) {
             items(books, key = { it.id }) { book ->
                 CoverSlot(
@@ -68,6 +71,7 @@ fun ShelfGrid(
                     coverW = coverW,
                     coverH = coverH,
                     labelH = labelH,
+                    progress = progress[book.id] ?: 0f,
                     selected = book.id == selectedId,
                     onSelect = { onSelect(book) },
                     onLongPress = { onLongPress(book) },
@@ -87,6 +91,7 @@ private fun CoverSlot(
     coverW: Dp,
     coverH: Dp,
     labelH: Dp,
+    progress: Float,
     selected: Boolean,
     onSelect: () -> Unit,
     onLongPress: () -> Unit,
@@ -114,6 +119,19 @@ private fun CoverSlot(
                         .border(2.dp, pal.accent, CoverShape)
                 } else Modifier,
             )
+            // The progress chip, WeRead style: 已读 percent in the corner.
+            if (progress > 0.005f && !selectionMode) {
+                Text(
+                    text = "${(progress * 100).toInt()}%",
+                    style = Type.numeric.copy(fontSize = 10.sp, lineHeight = 12.sp),
+                    color = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(6.dp)
+                        .background(Color(0x8C000000), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 5.dp, vertical = 1.dp),
+                )
+            }
             if (selectionMode) {
                 // The round pick badge, the way Apple Books marks covers.
                 Box(
@@ -141,21 +159,11 @@ private fun CoverSlot(
                 }
             }
         }
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(8.dp))
         Text(
             text = book.title,
             style = Type.label.copy(fontSize = 13.sp, lineHeight = 17.sp),
             color = pal.text,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.width(coverW),
-        )
-        Spacer(Modifier.height(2.dp))
-        Text(
-            text = book.authorLine,
-            style = Type.small,
-            color = pal.textTertiary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,

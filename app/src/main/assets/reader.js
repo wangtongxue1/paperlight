@@ -94,7 +94,7 @@
     flow.style.columnGap = GAP + 'px';
     flow.style.columnFill = 'auto';
     flow.style.position = 'relative';
-    flow.style.padding = '20px ' + PAD + 'px 48px';
+    flow.style.padding = '44px ' + PAD + 'px 48px';
     // Trailing padding is not part of the scrollable overflow, so the last
     // column could never land on its right margin. Pin an invisible 1px
     // strut just past it so the final page offset becomes reachable.

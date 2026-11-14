@@ -39,6 +39,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -119,7 +121,7 @@ private data class PageInfo(
     val ratio: Float = 0f,
 )
 
-private enum class Panel { Toc, Look, Theme }
+private enum class Panel { Toc, Look, Bright, Night, Font }
 
 /** One selected passage waiting for the reader to act on it, with where it sits on screen. */
 private data class Selection(
@@ -180,6 +182,7 @@ fun ReaderScreen(
 
     // Full-text search: the query lives here, the hits live in the page.
     var searchOpen by remember { mutableStateOf(false) }
+    var moreMenu by remember { mutableStateOf(false) }
     var searchText by remember { mutableStateOf("") }
     var searchCount by remember { mutableIntStateOf(0) }
     var searchAt by remember { mutableIntStateOf(-1) }
@@ -584,20 +587,7 @@ fun ReaderScreen(
                             modifier = Modifier.size(21.dp),
                         )
                     }
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            text = book.title,
-                            style = Type.label,
-                            color = chromeInk,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            text = "${(shown * 100).toInt()}%",
-                            style = Type.numeric,
-                            color = chromeInkFaint,
-                        )
-                    }
+                    Spacer(Modifier.weight(1f))
                     // Full-text search, the 起点/番茄 staple, quiet styling.
                     Box(
                         Modifier
@@ -613,41 +603,68 @@ fun ReaderScreen(
                             modifier = Modifier.size(19.dp),
                         )
                     }
+                    Box(
+                        Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(Radius.md.dp))
+                            .clickable { moreMenu = true },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            painterResource(R.drawable.ic_a_more),
+                            contentDescription = null,
+                            tint = chromeInk,
+                            modifier = Modifier.size(19.dp),
+                        )
+                        DropdownMenu(expanded = moreMenu, onDismissRequest = { moreMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text(strings.jumpBookStart) },
+                                onClick = {
+                                    moreMenu = false
+                                    runJs("window.__pl.jumpChapter(0)")
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(strings.exportNotes) },
+                                onClick = {
+                                    moreMenu = false
+                                    exportLauncher.launch("《${book.title}》批注.txt")
+                                },
+                            )
+                        }
+                    }
                 }
             }
         }
 
-        // ---- quiet footer: chapter + page in the page's own margin band ----
-        // Paged mode only: pages reserve a bottom margin band for it. In
-        // scroll mode a floating footer would sit on top of the passing
-        // text, so there the progress lives in the chrome only.
-        if (!chromeOn && info.mode == "paged" && info.pages > 0) {
-            val footerInk = chromeInkFaint
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .padding(start = 22.dp, end = 22.dp, bottom = navBottom + 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+        // ---- quiet marks, 微信读书 style: chapter top-left, page bottom-right
+        if (!chromeOn) {
+            val markInk = chromeInkFaint
+            if (info.mode == "paged") {
                 Text(
                     text = toc.getOrNull(info.chapter)?.title ?: book.title,
                     style = Type.numeric.copy(fontSize = 11.sp),
-                    color = footerInk,
+                    color = markInk,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    text = if (info.mode == "paged" && info.pages > 0) {
-                        strings.pagePos(info.page, info.pages)
-                    } else {
-                        "${(info.ratio * 100).toInt()}%"
-                    },
-                    style = Type.numeric.copy(fontSize = 11.sp),
-                    color = footerInk,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(start = 22.dp, top = 6.dp)
+                        .fillMaxWidth(0.6f),
                 )
             }
+            Text(
+                text = if (info.mode == "paged" && info.pages > 0) {
+                    strings.pagePos(info.page, info.pages)
+                } else {
+                    "${(info.ratio * 100).toInt()}%"
+                },
+                style = Type.numeric.copy(fontSize = 11.sp),
+                color = markInk,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 22.dp, bottom = navBottom + 6.dp),
+            )
         }
 
         // ---- bottom chrome: chapter nav row + dock, paper-on-paper --------
@@ -661,83 +678,7 @@ fun ReaderScreen(
                     .background(chromeBg)
                     .padding(bottom = navBottom + 6.dp),
             ) {
-                // 上一章 · scrub slider · 下一章, the 番茄 chapter strip.
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    ChapterJump(
-                        label = strings.prevChapter,
-                        enabled = info.chapter > 0,
-                        ink = chromeInk,
-                        faint = chromeInkFaint,
-                    ) {
-                        runJs("window.__pl.jumpChapter(${info.chapter - 1})")
-                    }
-                    BoxWithConstraints(
-                        Modifier
-                            .weight(1f)
-                            .padding(horizontal = 10.dp)
-                            .height(30.dp)
-                            .pointerInput(Unit) {
-                                detectTapGestures { p ->
-                                    val r = (p.x / size.width.toFloat()).coerceIn(0f, 1f)
-                                    runJs("window.__pl.jumpRatio($r)")
-                                }
-                            }
-                            .pointerInput(Unit) {
-                                detectHorizontalDragGestures(
-                                    onDragStart = { p ->
-                                        seek = (p.x / size.width.toFloat()).coerceIn(0f, 1f)
-                                    },
-                                    onDragEnd = {
-                                        seek?.let { runJs("window.__pl.jumpRatio($it)") }
-                                        seek = null
-                                    },
-                                    onDragCancel = { seek = null },
-                                ) { change, _ ->
-                                    seek = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
-                                    change.consume()
-                                }
-                            },
-                        contentAlignment = Alignment.CenterStart,
-                    ) {
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .height(4.dp)
-                                .clip(CircleShape)
-                                .background(if (theme == "dark") Color(0xFF3A3833) else Color(0xFFE2D8C4)),
-                        )
-                        Box(
-                            Modifier
-                                .fillMaxWidth(shown)
-                                .height(4.dp)
-                                .clip(CircleShape)
-                                .background(chromeAccent),
-                        )
-                        Box(
-                            Modifier
-                                .align(Alignment.CenterStart)
-                                .offset(x = (maxWidth * shown - 12.dp).coerceAtLeast(0.dp))
-                                .size(12.dp)
-                                .clip(CircleShape)
-                                .background(chromeAccent),
-                        )
-                    }
-                    ChapterJump(
-                        label = strings.nextChapter,
-                        enabled = toc.isEmpty() || info.chapter < toc.size - 1,
-                        ink = chromeInk,
-                        faint = chromeInkFaint,
-                    ) {
-                        runJs("window.__pl.jumpChapter(${info.chapter + 1})")
-                    }
-                }
-
-                // The dock itself: 目录 / 夜间·亮色 / 设置 — nothing else.
+                // The dock itself, 微信读书 style: 目录 / 界面 / 亮度 / 夜间 / 字体.
                 Row(
                     Modifier
                         .fillMaxWidth()
@@ -757,19 +698,7 @@ fun ReaderScreen(
                         panel = if (panel == Panel.Toc) null else Panel.Toc
                     }
                     NavItem(
-                        if (theme == "dark") R.drawable.ic_r_sun else R.drawable.ic_r_moon,
-                        if (panel == Panel.Theme) strings.readerCollapse
-                        else if (theme == "dark") strings.readerLight else strings.readerNight,
-                        panel == Panel.Theme,
-                        ink = chromeInk,
-                        faint = chromeInkFaint,
-                        activeTint = chromeAccent,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        panel = if (panel == Panel.Theme) null else Panel.Theme
-                    }
-                    NavItem(
-                        R.drawable.ic_a_gear,
+                        R.drawable.ic_r_look,
                         strings.readerLook,
                         panel == Panel.Look,
                         ink = chromeInk,
@@ -778,6 +707,41 @@ fun ReaderScreen(
                         modifier = Modifier.weight(1f),
                     ) {
                         panel = if (panel == Panel.Look) null else Panel.Look
+                    }
+                    NavItem(
+                        R.drawable.ic_r_bright,
+                        strings.brightness,
+                        panel == Panel.Bright,
+                        ink = chromeInk,
+                        faint = chromeInkFaint,
+                        activeTint = chromeAccent,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        panel = if (panel == Panel.Bright) null else Panel.Bright
+                    }
+                    NavItem(
+                        if (theme == "dark") R.drawable.ic_r_sun else R.drawable.ic_r_moon,
+                        if (panel == Panel.Night) strings.readerCollapse
+                        else if (theme == "dark") strings.readerLight else strings.readerNight,
+                        panel == Panel.Night,
+                        ink = chromeInk,
+                        faint = chromeInkFaint,
+                        activeTint = chromeAccent,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        panel = if (panel == Panel.Night) null else Panel.Night
+                    }
+                    NavItem(
+                        iconRes = 0,
+                        iconText = "A",
+                        label = strings.fontFamily,
+                        active = panel == Panel.Font,
+                        ink = chromeInk,
+                        faint = chromeInkFaint,
+                        activeTint = chromeAccent,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        panel = if (panel == Panel.Font) null else Panel.Font
                     }
                 }
             }
@@ -804,9 +768,13 @@ fun ReaderScreen(
                         toc = toc,
                         current = info.chapter,
                         ratio = info.ratio,
+                        shown = shown,
                         tab = tocTab,
                         onTab = { tocTab = it },
                         annos = annos,
+                        onSeek = { r ->
+                            runJs("window.__pl.jumpRatio($r)")
+                        },
                         onJumpChapter = { i ->
                             runJs("window.__pl.jumpChapter($i)")
                             panel = null
@@ -822,25 +790,27 @@ fun ReaderScreen(
                         },
                         onExport = { exportLauncher.launch("《${book.title}》批注.txt") },
                     )
-                    Panel.Theme -> ThemeSheet(
+                    Panel.Look -> LookSheet(
+                        paged = paged,
+                        autoSpeed = autoSpeed,
+                        onMode = { paged = it },
+                        onAuto = { autoSpeed = it },
+                    )
+                    Panel.Bright -> BrightSheet(
+                        brightness = brightness,
+                        onBrightness = { brightness = it },
+                    )
+                    Panel.Night -> ThemeSheet(
                         theme = theme,
                         onTheme = { theme = it },
                     )
-                    Panel.Look -> LookPanel(
+                    Panel.Font -> FontSheet(
                         fontScale = fontScale,
-                        paged = paged,
-                        theme = theme,
                         lineHeight = lineHeight,
                         fontFamily = fontFamily,
-                        brightness = brightness,
-                        autoSpeed = autoSpeed,
                         onFont = { fontScale = it },
-                        onMode = { paged = it },
-                        onTheme = { theme = it },
                         onLineHeight = { lineHeight = it },
                         onFontFamily = { fontFamily = it },
-                        onBrightness = { brightness = it },
-                        onAuto = { autoSpeed = it },
                     )
                 }
             }
@@ -958,7 +928,7 @@ fun ReaderScreen(
     }
 }
 
-/** One labeled destination in the dock: icon on top, word below. */
+/** One labeled destination in the dock: icon (or letter) on top, word below. */
 @Composable
 private fun NavItem(
     iconRes: Int,
@@ -968,6 +938,7 @@ private fun NavItem(
     faint: Color,
     activeTint: Color,
     modifier: Modifier = Modifier,
+    iconText: String? = null,
     onClick: () -> Unit,
 ) {
     Column(
@@ -977,12 +948,20 @@ private fun NavItem(
             .padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(
-            painterResource(iconRes),
-            contentDescription = label,
-            tint = if (active) activeTint else ink,
-            modifier = Modifier.size(21.dp),
-        )
+        if (iconText != null) {
+            Text(
+                text = iconText,
+                style = Type.title,
+                color = if (active) activeTint else ink,
+            )
+        } else {
+            Icon(
+                painterResource(iconRes),
+                contentDescription = label,
+                tint = if (active) activeTint else ink,
+                modifier = Modifier.size(21.dp),
+            )
+        }
         Spacer(Modifier.height(3.dp))
         Text(
             text = label,
@@ -1078,8 +1057,9 @@ private fun PillIcon(iconRes: Int, desc: String, tint: Color, onClick: () -> Uni
 }
 
 /**
- * The 目录 sheet, 番茄-style: book header, 目录/批注 tabs, and the chapter
- * list open on where the reader actually is, current chapter marked.
+ * The 目录 sheet, 微信读书 style: book header, 目录/批注 tabs, the chapter
+ * list open on where the reader actually is, and the seek strip at the
+ * bottom — the book's progress lives here, not in the reading chrome.
  */
 @Composable
 private fun TocSheet(
@@ -1088,9 +1068,11 @@ private fun TocSheet(
     toc: List<TocItem>,
     current: Int,
     ratio: Float,
+    shown: Float,
     tab: Int,
     onTab: (Int) -> Unit,
     annos: List<Annotation>,
+    onSeek: (Float) -> Unit,
     onJumpChapter: (Int) -> Unit,
     onJumpAnno: (Annotation) -> Unit,
     onDeleteAnno: (Annotation) -> Unit,
@@ -1125,45 +1107,112 @@ private fun TocSheet(
         else -> {
             if (toc.isEmpty()) {
                 Text(strings.noToc, style = Type.small, color = pal.textTertiary)
-                return
-            }
-            val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-            // Open on where the reader actually is, like the 番茄/起点 目录.
-            LaunchedEffect(toc, current) {
-                val row = toc.indexOfFirst { it.index == current }
-                if (row >= 0) listState.scrollToItem(row.coerceAtLeast(0))
-            }
-            LazyColumn(modifier = Modifier.height(420.dp), state = listState) {
-                items(toc, key = { it.index }) { item ->
-                    val isCurrent = item.index == current
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(Radius.md.dp))
-                            .clickable { onJumpChapter(item.index) }
-                            .padding(horizontal = 10.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = item.title,
-                            style = Type.body,
-                            color = if (isCurrent) pal.accent else pal.text,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f),
-                        )
-                        if (isCurrent) {
-                            Spacer(Modifier.width(8.dp))
+            } else {
+                val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+                // Open on where the reader actually is, like the 番茄/起点 目录.
+                LaunchedEffect(toc, current) {
+                    val row = toc.indexOfFirst { it.index == current }
+                    if (row >= 0) listState.scrollToItem(row.coerceAtLeast(0))
+                }
+                LazyColumn(modifier = Modifier.height(420.dp), state = listState) {
+                    items(toc, key = { it.index }) { item ->
+                        val isCurrent = item.index == current
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(Radius.md.dp))
+                                .clickable { onJumpChapter(item.index) }
+                                .padding(horizontal = 10.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
                             Text(
-                                text = strings.readTo((ratio * 100).toInt()),
-                                style = Type.small,
-                                color = pal.accent,
+                                text = item.title,
+                                style = Type.body,
+                                color = if (isCurrent) pal.accent else pal.text,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f),
                             )
+                            if (isCurrent) {
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = strings.readTo((ratio * 100).toInt()),
+                                    style = Type.small,
+                                    color = pal.accent,
+                                )
+                            }
                         }
                     }
                 }
             }
+            // The seek strip, lifted out of the reading chrome: tap or drag
+            // anywhere on it to jump through the whole book.
+            Spacer(Modifier.height(12.dp))
+            SeekStrip(shown = shown, accent = pal.accent, track = pal.borderSubtle, onSeek = onSeek)
         }
+    }
+}
+
+/** The draggable whole-book progress strip: tap to jump, drag to scrub. */
+@Composable
+private fun SeekStrip(
+    shown: Float,
+    accent: Color,
+    track: Color,
+    onSeek: (Float) -> Unit,
+) {
+    var drag by remember { mutableStateOf<Float?>(null) }
+    val pos = drag ?: shown
+    BoxWithConstraints(
+        Modifier
+            .fillMaxWidth()
+            .height(30.dp)
+            .pointerInput(Unit) {
+                detectTapGestures { p ->
+                    val r = (p.x / size.width.toFloat()).coerceIn(0f, 1f)
+                    drag = r
+                    onSeek(r)
+                }
+            }
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragStart = { p ->
+                        drag = (p.x / size.width.toFloat()).coerceIn(0f, 1f)
+                    },
+                    onDragEnd = {
+                        drag?.let(onSeek)
+                        drag = null
+                    },
+                    onDragCancel = { drag = null },
+                ) { change, _ ->
+                    drag = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
+                    change.consume()
+                }
+            },
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .clip(CircleShape)
+                .background(track),
+        )
+        Box(
+            Modifier
+                .fillMaxWidth(pos)
+                .height(4.dp)
+                .clip(CircleShape)
+                .background(accent),
+        )
+        Box(
+            Modifier
+                .align(Alignment.CenterStart)
+                .offset(x = (maxWidth * pos - 12.dp).coerceAtLeast(0.dp))
+                .size(12.dp)
+                .clip(CircleShape)
+                .background(accent),
+        )
     }
 }
 
@@ -1275,27 +1324,48 @@ private fun AnnotationPanel(
     }
 }
 
+/** 界面 sheet: page mode + automatic turning, nothing else. */
 @Composable
-private fun LookPanel(
-    fontScale: Float,
+private fun LookSheet(
     paged: Boolean,
-    theme: String,
-    lineHeight: Float,
-    fontFamily: String,
-    brightness: Float,
     autoSpeed: Int,
-    onFont: (Float) -> Unit,
     onMode: (Boolean) -> Unit,
-    onTheme: (String) -> Unit,
-    onLineHeight: (Float) -> Unit,
-    onFontFamily: (String) -> Unit,
-    onBrightness: (Float) -> Unit,
     onAuto: (Int) -> Unit,
 ) {
     val pal = palette
     val strings = strings
 
-    // ---- row 1: brightness -----------------------------------------------------
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        RowLabel(strings.pageMode)
+        Spacer(Modifier.width(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Chip(selected = !paged, title = strings.modeScroll) { onMode(false) }
+            Chip(selected = paged, title = strings.modePaged) { onMode(true) }
+        }
+    }
+
+    Spacer(Modifier.height(16.dp))
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        RowLabel(strings.autoTurn)
+        Spacer(Modifier.width(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Chip(selected = autoSpeed == 0, title = strings.autoOff) { onAuto(0) }
+            Chip(selected = autoSpeed == 14, title = strings.autoSlow) { onAuto(14) }
+            Chip(selected = autoSpeed == 9, title = strings.autoMid) { onAuto(9) }
+            Chip(selected = autoSpeed == 5, title = strings.autoFast) { onAuto(5) }
+        }
+    }
+}
+
+/** 亮度 sheet: one slider, 跟随系统 at zero. */
+@Composable
+private fun BrightSheet(
+    brightness: Float,
+    onBrightness: (Float) -> Unit,
+) {
+    val pal = palette
+    val strings = strings
     Row(verticalAlignment = Alignment.CenterVertically) {
         RowLabel(strings.brightness)
         Slider(
@@ -1312,10 +1382,21 @@ private fun LookPanel(
             color = pal.textTertiary,
         )
     }
+}
 
-    Spacer(Modifier.height(14.dp))
+/** 字体 sheet: size stepper + face + line spacing. */
+@Composable
+private fun FontSheet(
+    fontScale: Float,
+    lineHeight: Float,
+    fontFamily: String,
+    onFont: (Float) -> Unit,
+    onLineHeight: (Float) -> Unit,
+    onFontFamily: (String) -> Unit,
+) {
+    val pal = palette
+    val strings = strings
 
-    // ---- row 2: font size stepper + face ---------------------------------------
     Row(verticalAlignment = Alignment.CenterVertically) {
         RowLabel(strings.fontSize)
         StepChip("A−") { onFont((fontScale - 0.05f).coerceAtLeast(0.8f)) }
@@ -1333,39 +1414,8 @@ private fun LookPanel(
         }
     }
 
-    Spacer(Modifier.height(14.dp))
+    Spacer(Modifier.height(16.dp))
 
-    // ---- row 3: theme circles ----------------------------------------------------
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        RowLabel(strings.readerColors)
-        Spacer(Modifier.width(6.dp))
-        READER_THEMES.forEach { key ->
-            val bg = when (key) {
-                "dark" -> Color(0xFF111110)
-                "sepia" -> Color(0xFFF7EFE0)
-                "gray" -> Color(0xFFE3E1DC)
-                else -> Color(0xFFFFFFFF)
-            }
-            val selected = key == theme
-            Box(
-                Modifier
-                    .padding(end = 14.dp)
-                    .size(30.dp)
-                    .clip(CircleShape)
-                    .background(bg)
-                    .border(
-                        width = if (selected) 2.dp else 1.dp,
-                        color = if (selected) pal.accent else pal.border,
-                        shape = CircleShape,
-                    )
-                    .clickable { onTheme(key) },
-            )
-        }
-    }
-
-    Spacer(Modifier.height(14.dp))
-
-    // ---- row 4: line spacing ------------------------------------------------------
     Row(verticalAlignment = Alignment.CenterVertically) {
         RowLabel(strings.lineHeight)
         Slider(
@@ -1381,32 +1431,6 @@ private fun LookPanel(
             style = Type.numeric,
             color = pal.textTertiary,
         )
-    }
-
-    Spacer(Modifier.height(14.dp))
-
-    // ---- row 5: page mode chips -----------------------------------------------------
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        RowLabel(strings.pageMode)
-        Spacer(Modifier.width(6.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Chip(selected = !paged, title = strings.modeScroll) { onMode(false) }
-            Chip(selected = paged, title = strings.modePaged) { onMode(true) }
-        }
-    }
-
-    Spacer(Modifier.height(14.dp))
-
-    // ---- row 6: automatic page turning -----------------------------------------------
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        RowLabel(strings.autoTurn)
-        Spacer(Modifier.width(6.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Chip(selected = autoSpeed == 0, title = strings.autoOff) { onAuto(0) }
-            Chip(selected = autoSpeed == 14, title = strings.autoSlow) { onAuto(14) }
-            Chip(selected = autoSpeed == 9, title = strings.autoMid) { onAuto(9) }
-            Chip(selected = autoSpeed == 5, title = strings.autoFast) { onAuto(5) }
-        }
     }
 }
 

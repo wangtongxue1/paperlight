@@ -43,7 +43,7 @@ object PageTemplate {
               :root { color-scheme: light; }
               html.pl-dark { color-scheme: dark; }
               body {
-                margin: 0; padding: 20px 22px 64px;
+                margin: 0; padding: 44px 22px 64px;
                 background: var(--bg); color: var(--ink);
                 font-family: Georgia, 'Noto Serif', 'Songti SC', serif;
                 font-size: 17px; line-height: 1.78;
