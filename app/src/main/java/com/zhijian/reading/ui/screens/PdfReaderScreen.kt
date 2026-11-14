@@ -188,7 +188,7 @@ fun PdfReaderScreen(
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val shown = (seek ?: progress).coerceIn(0f, 1f)
     val chromeBg = if (dark) pal.bgApp else pal.surface
-    val pageBg = if (dark) Color(0xFF111110) else Color(0xFFFFFFFF)
+    val pageBg = if (dark) Color(0xFF17181A) else Color(0xFFFBF9F4)
 
     Box(
         Modifier

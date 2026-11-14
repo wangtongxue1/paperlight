@@ -21,9 +21,13 @@
   var body = document.body;
   var doc = document.documentElement;
   var pager = null, flow = null;
-  var PAD = 22;   // horizontal padding inside each column, matches the page's
+  // 微信读书 proportions: the text column floats with air above and below,
+  // never flush with the screen edges — top ≈ 10% of the viewport for the
+  // quiet chapter mark, bottom ≈ 11% so the page number never touches text.
+  var PAD = 24;   // horizontal padding inside each column, matches the page's
   var GAP = 2 * PAD;  // gutter = two page margins, so each page shows
-                      // [margin][column][margin] with symmetric 22px edges
+                      // [margin][column][margin] with symmetric 24px edges
+  var PADTOP = 80, PADBOT = 92;
   var STEP = 0;   // distance from one column's start to the next
 
   function post(type, data) {
@@ -89,12 +93,15 @@
     // offset aligned with the scroll math.
     var col = Math.max(100, w - 2 * PAD);
     STEP = col + GAP;
-    flow.style.height = h + 'px';
+    // height is content-box: the column box must be the viewport MINUS the
+    // top/bottom padding, or every page bleeds past the reserved air and
+    // text runs flush to the screen edge (the "full-bleed" bug).
+    flow.style.height = (h - PADTOP - PADBOT) + 'px';
     flow.style.columnWidth = col + 'px';
     flow.style.columnGap = GAP + 'px';
     flow.style.columnFill = 'auto';
     flow.style.position = 'relative';
-    flow.style.padding = '44px ' + PAD + 'px 48px';
+    flow.style.padding = PADTOP + 'px ' + PAD + 'px ' + PADBOT + 'px';
     // Trailing padding is not part of the scrollable overflow, so the last
     // column could never land on its right margin. Pin an invisible 1px
     // strut just past it so the final page offset becomes reachable.

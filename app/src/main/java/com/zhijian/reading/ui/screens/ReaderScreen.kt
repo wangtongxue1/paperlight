@@ -10,6 +10,7 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -45,6 +46,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -122,10 +124,10 @@ private enum class Panel { Toc, Notes, Progress, Bright, Font }
 
 /** The paper color of a reading theme, as an ARGB int for the WebView. */
 private fun themeBgColor(theme: String): Int = when (theme) {
-    "dark" -> 0xFF111110.toInt()
-    "sepia" -> 0xFFF7EFE0.toInt()
-    "gray" -> 0xFFE3E1DC.toInt()
-    else -> 0xFFFFFFFF.toInt()
+    "dark" -> 0xFF17181A.toInt()
+    "sepia" -> 0xFFF5EEDC.toInt()
+    "gray" -> 0xFFE4E2DD.toInt()
+    else -> 0xFFFBF9F4.toInt()
 }
 
 /**
@@ -145,11 +147,11 @@ private data class SheetPal(
 private fun sheetPal(theme: String, pal: com.zhijian.reading.ui.theme.Palette): SheetPal =
     if (theme == "dark") {
         SheetPal(
-            bg = Color(0xFF1C2229),
-            ink = Color(0xFFD5D2CB),
-            faint = Color(0xFF87857E),
-            raised = Color(0xFF242C34),
-            border = Color(0xFF343C44),
+            bg = Color(0xFF1F2023),
+            ink = Color(0xFFB5B3AC),
+            faint = Color(0xFF7E7C75),
+            raised = Color(0xFF26272A),
+            border = Color(0xFF35373A),
             accent = Color(0xFFD8A55A),
             accentSubtle = Color(0x33D8A55A),
         )
@@ -192,6 +194,7 @@ fun ReaderScreen(
     initialProgress: Float,
     onProgress: (Float) -> Unit,
     onBack: () -> Unit,
+    onStripColor: (Color) -> Unit = {},
 ) {
     val pal = palette
     val strings = strings
@@ -242,10 +245,10 @@ fun ReaderScreen(
     // floating chrome composites black on some devices (the page "goes dark"
     // whenever the bars show). The HTML body paints the same color anyway.
     val webViewBg: Int = when (appSettings.readerTheme) {
-        "dark" -> 0xFF111110.toInt()
-        "sepia" -> 0xFFF7EFE0.toInt()
-        "gray" -> 0xFFE3E1DC.toInt()
-        else -> 0xFFFFFFFF.toInt()
+        "dark" -> 0xFF17181A.toInt()
+        "sepia" -> 0xFFF5EEDC.toInt()
+        "gray" -> 0xFFE4E2DD.toInt()
+        else -> 0xFFFBF9F4.toInt()
     }
     val webView = remember {
         WebView(context).apply {
@@ -429,6 +432,21 @@ fun ReaderScreen(
             webView.setBackgroundColor(themeBgColor(theme))
             appSettings.readerTheme = theme
         }
+        // The status/navigation strips follow the reading paper, 微信读书
+        // style: a night page gets night strips. AppRoot paints the strips
+        // itself, so hand the paper color up.
+        onStripColor(
+            when (theme) {
+                "dark" -> Color(0xFF17181A)
+                "sepia" -> Color(0xFFF5EEDC)
+                "gray" -> Color(0xFFE4E2DD)
+                else -> Color(0xFFFBF9F4)
+            },
+        )
+    }
+    DisposableEffect(Unit) {
+        val appBg = pal.bgApp
+        onDispose { onStripColor(appBg) }
     }
     LaunchedEffect(lineHeight) {
         if (engineReady) {
@@ -514,20 +532,20 @@ fun ReaderScreen(
     // Chrome shares the page's paper so the bars feel part of the sheet,
     // 番茄-style, instead of floating app chrome above it.
     val contentBg = when (theme) {
-        "dark" -> Color(0xFF111110)
-        "sepia" -> Color(0xFFF7EFE0)
-        "gray" -> Color(0xFFE3E1DC)
-        else -> Color(0xFFFFFFFF)
+        "dark" -> Color(0xFF17181A)
+        "sepia" -> Color(0xFFF5EEDC)
+        "gray" -> Color(0xFFE4E2DD)
+        else -> Color(0xFFFBF9F4)
     }
     val chromeBg = contentBg
     val chromeInk = when (theme) {
-        "dark" -> Color(0xFFCFCBC2)
+        "dark" -> Color(0xFFB5B3AC)
         "sepia" -> Color(0xFF55483A)
         "gray" -> Color(0xFF3B3936)
-        else -> Color(0xFF37342F)
+        else -> Color(0xFF35322B)
     }
     val chromeInkFaint = when (theme) {
-        "dark" -> Color(0xFF7C7972)
+        "dark" -> Color(0xFF75736C)
         "sepia" -> Color(0xFFA08F72)
         "gray" -> Color(0xFF84817A)
         else -> Color(0xFF9C968D)
@@ -1511,6 +1529,11 @@ private fun BrightSheet(
             value = brightness,
             onValueChange = { onBrightness(Math.round(it * 20f) / 20f) },
             valueRange = 0f..1f,
+            colors = SliderDefaults.colors(
+                thumbColor = sp.accent,
+                activeTrackColor = sp.accent,
+                inactiveTrackColor = sp.border,
+            ),
             modifier = Modifier
                 .weight(1f)
                 .padding(horizontal = 10.dp),
@@ -1566,10 +1589,10 @@ private fun BrightSheet(
 
 /** The paper color behind a theme swatch, matching the page background. */
 private fun paperSwatch(key: String): Color = when (key) {
-    "dark" -> Color(0xFF202830)
-    "sepia" -> Color(0xFFF5F1E4)
-    "gray" -> Color(0xFFE3E1DC)
-    else -> Color(0xFFFFFFFF)
+    "dark" -> Color(0xFF1F2124)
+    "sepia" -> Color(0xFFF5EEDC)
+    "gray" -> Color(0xFFE4E2DD)
+    else -> Color(0xFFFBF9F4)
 }
 
 /** 字体 sheet: size stepper + face + line spacing. */
@@ -1610,6 +1633,11 @@ private fun FontSheet(
             value = lineHeight,
             onValueChange = { onLineHeight(Math.round(it * 20f) / 20f) },
             valueRange = 1.4f..2.2f,
+            colors = SliderDefaults.colors(
+                thumbColor = sp.accent,
+                activeTrackColor = sp.accent,
+                inactiveTrackColor = sp.border,
+            ),
             modifier = Modifier
                 .weight(1f)
                 .padding(horizontal = 10.dp),

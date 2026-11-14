@@ -143,6 +143,10 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
     var pendingDelete by remember { mutableStateOf<Book?>(null) }
     var pendingCover by remember { mutableStateOf<Book?>(null) }
 
+    // Color of the edge-to-edge strips around the padded content. The reader
+    // paints it with the reading paper so a night page gets night strips.
+    var stripColor by remember { mutableStateOf(pal.bgApp) }
+
     val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val entry by nav.currentBackStackEntryAsState()
@@ -213,7 +217,7 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
     Box(
         Modifier
             .fillMaxSize()
-            .background(pal.bgApp),
+            .background(stripColor),
     ) {
         Box(Modifier.padding(top = statusTop)) {
             NavHost(navController = nav, startDestination = "library") {
@@ -313,6 +317,7 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
                             initialProgress = vm.progress[book.id] ?: 0f,
                             onProgress = { vm.markRead(book.id, it) },
                             onBack = { nav.popBackStack() },
+                            onStripColor = { stripColor = it },
                         )
                     }
                 }

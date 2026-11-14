@@ -3,6 +3,19 @@
 纸间阅读 **Paperlight** —— Apple Books 风格的 Android 阅读器（EPUB / PDF / TXT / MOBI / HTML / MD / FB2）。
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.5.3] - 2026-11-14
+
+### 修复
+
+- **阅读页上下留白（重要）**：分页引擎列高按 content-box 少减了上下内边距，正文列一直铺到屏幕底甚至溢出——修正后正文上下各留约 10%/11% 呼吸空间，与微信读书一致，不再压住页码；左右边距 22→24px
+- **状态栏 / 导航条跟随阅读纸色**：夜间阅读时系统条不再残留亮色（Android 15+ 强制 edge-to-edge 后 `statusBarColor` 失效，改为 AppRoot 提升的条色状态由阅读页按纸色改写，退出还原）
+
+### 变更
+
+- **四套阅读纸色调成微信读书的「暖纸灰墨」**：素白 `#FFF`→暖纸白 `#FBF9F4`、墨色加深；米黄 `#F5EEDC`、纸灰 `#E4E2DD`、夜间中性深黑 `#17181A`（文字改浅灰更护眼）；WebView / chrome / 面板 / 色块同步
+- 面板内滑条从 Material 默认亮橙 / 浅紫改为面板土金色系
+- PDF 阅读页底色对齐同一套纸色
+
 ## [1.5.2] - 2026-11-14
 
 ### 修复

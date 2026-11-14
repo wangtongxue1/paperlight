@@ -25,25 +25,25 @@ object PageTemplate {
             <title>${escape(title)}</title>
             <style>
               :root {
-                --ink: #21201c; --dim: #4a463f; --bg: #ffffff; --rule: #e2e1de;
-                --link: #3a5bc7; --selbg: #e1e9ff; --hlbg: rgba(255,196,0,.42); --codebg: #f4f3f1;
+                --ink: #26241f; --dim: #8b877c; --bg: #fbf9f4; --rule: #e7e3d9;
+                --link: #3a5bc7; --selbg: #e1e9ff; --hlbg: rgba(255,196,0,.42); --codebg: #f3f1ea;
               }
               html.pl-dark {
-                --ink: #eeeeec; --dim: #b5b3ad; --bg: #111110; --rule: #31312e;
-                --link: #9eb1ff; --selbg: #1d2e62; --hlbg: rgba(255,196,0,.30); --codebg: #191918;
+                --ink: #b5b3ac; --dim: #7d7b74; --bg: #17181a; --rule: #2e2f31;
+                --link: #8fa6ce; --selbg: #24304f; --hlbg: rgba(255,196,0,.30); --codebg: #1d1e20;
               }
               html.pl-sepia {
-                --ink: #3b3225; --dim: #6b5d49; --bg: #f7efe0; --rule: #e0d4bd;
-                --link: #8a5a2b; --selbg: #e8dcc2; --hlbg: rgba(240,170,20,.38); --codebg: #efe5d2;
+                --ink: #332c1e; --dim: #7a6e58; --bg: #f5eedc; --rule: #e3d9c3;
+                --link: #8a5a2b; --selbg: #e8dcc2; --hlbg: rgba(240,170,20,.38); --codebg: #efe6d0;
               }
               html.pl-gray {
-                --ink: #3a3a3a; --dim: #666560; --bg: #e3e1dc; --rule: #cdc9c1;
-                --link: #4a6584; --selbg: #d3d1cb; --hlbg: rgba(230,180,40,.40); --codebg: #d9d6d0;
+                --ink: #33322f; --dim: #6b6963; --bg: #e4e2dd; --rule: #d0ccc4;
+                --link: #4a6584; --selbg: #d3d1cb; --hlbg: rgba(230,180,40,.40); --codebg: #dad7d1;
               }
               :root { color-scheme: light; }
               html.pl-dark { color-scheme: dark; }
               body {
-                margin: 0; padding: 44px 24px 64px;
+                margin: 0; padding: 80px 24px 92px;
                 background: var(--bg); color: var(--ink);
                 font-family: -apple-system, 'Noto Sans', 'Microsoft YaHei', sans-serif;
                 font-size: 19px; line-height: 1.9;

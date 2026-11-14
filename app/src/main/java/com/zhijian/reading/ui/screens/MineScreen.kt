@@ -217,7 +217,7 @@ fun MineScreen(
             Column(Modifier.padding(horizontal = 20.dp)) {
                 Overline(strings.about)
                 Spacer(Modifier.height(10.dp))
-                InfoLine(strings.appName, strings.version + " 1.5.2")
+                InfoLine(strings.appName, strings.version + " 1.5.3")
                 Spacer(Modifier.height(8.dp))
                 Text(strings.aboutBody, style = Type.small, color = pal.textSecondary)
             }
