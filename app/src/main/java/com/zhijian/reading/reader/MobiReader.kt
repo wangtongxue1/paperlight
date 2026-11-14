@@ -54,12 +54,14 @@ object MobiReader {
             // own table of contents (heading 目录 + a wall of links) lives
             // in the TOC panel, not in the reading flow. AZW3 books often
             // carry the TOC INSIDE the single content document, so a chunk
-            // is stripped in place rather than dropped wholesale.
+            // is stripped in place rather than dropped wholesale. The same
+            // pass removes the XHTML document shell that otherwise rendered
+            // as a blank page titled "Contents".
             val rawChunks = splitChunks(mobi.htmlBytes, mobi.encoding)
                 .filter { it.text.isNotBlank() }
             var chunks = rawChunks
-                .map { RawChunk(it.start, stripTocSection(it.text) ?: "") }
-                .filter { it.text.isNotBlank() }
+                .map { RawChunk(it.start, TocStrip.stripSection(it.text) ?: "") }
+                .filter { !TocStrip.isBlankSection(it.text) }
             if (chunks.isEmpty()) {
                 // Everything looked like TOC — keep the book visible rather
                 // than refusing to open.
@@ -68,22 +70,27 @@ object MobiReader {
             // Books that ship as one document (many AZW3) carry all their
             // chapters in a single section; splitting at the top headings
             // makes 每章独立成页 and the TOC panel work like elsewhere.
+            var splitByHeadings = false
             if (chunks.size == 1) {
                 val one = chunks[0]
                 val marks = Regex("""<h[12]\b""", RegexOption.IGNORE_CASE)
                     .findAll(one.text).toList()
                 if (marks.size > 1) {
                     val pieces = mutableListOf<RawChunk>()
+                    // Anything before the first heading is its own piece
+                    // (a cover or title page); the chapters start at the
+                    // first heading itself, not after it.
                     pieces += RawChunk(one.start, one.text.substring(0, marks[0].range.first))
-                    for (i in 1 until marks.size) {
+                    for (i in 0 until marks.size) {
                         val s = marks[i].range.first
                         val e = if (i + 1 < marks.size) marks[i + 1].range.first else one.text.length
                         pieces += RawChunk(one.start + s, one.text.substring(s, e))
                     }
-                    val real = pieces.filter {
-                        PageTemplate.stripTags(it.text).replace(Regex("\\s+"), "").isNotBlank()
+                    val real = pieces.filter { !TocStrip.isBlankSection(it.text) }
+                    if (real.size > 1) {
+                        chunks = real
+                        splitByHeadings = true
                     }
-                    if (real.size > 1) chunks = real
                 }
             }
 
@@ -93,7 +100,11 @@ object MobiReader {
             if (sections.isEmpty()) return null
             sections.forEach { body.append(it) }
 
-            val toc = buildToc(mobi.htmlBytes, chunks, mobi.encoding)
+            // filepos anchors only line up with the original byte stream. A
+            // book we just cut at headings has no such mapping left, so its
+            // chapter names come from the headings themselves.
+            val toc = if (splitByHeadings) buildToc(chunks.map { it.text })
+            else buildToc(mobi.htmlBytes, chunks, mobi.encoding)
                 ?: buildToc(chunks.map { it.text })
             BookContent(
                 html = PageTemplate.wrap(mobi.title, body.toString(), theme),
@@ -528,53 +539,6 @@ object MobiReader {
                     .removeSuffix("/>").removeSuffix(">") + " src=\"$uri\"/>"
             }
             .replace(Regex("""\s(recindex|lowrecindex|multimediarecindex|audiorecindex|coverage recindex)="[^"]*"""", RegexOption.IGNORE_CASE), "")
-
-    /**
-     * Removes the book's own 目录 section from a chunk of HTML: finds the
-     * heading block (目录/Contents), runs over the entry blocks that follow
-     * (short, no sentence punctuation, no heading of their own), and joins
-     * the HTML before the heading with everything from the first real
-     * content block. Returns null when the chunk is TOC-only or carries no
-     * recognizable TOC layout — the caller decides what that means.
-     */
-    private val htmlBlock = Regex(
-        """<(h[1-6]|p|div|li|td|blockquote)\b[^>]*>[\s\S]*?</\1\s*>""",
-        RegexOption.IGNORE_CASE,
-    )
-
-    private val tocHeadingLine = Regex(
-        """^\s*(目\s*录|目\s*次|contents|table\s+of\s+contents)\s*$""",
-        RegexOption.IGNORE_CASE,
-    )
-
-    private fun blockText(b: String): String =
-        PageTemplate.unescape(PageTemplate.stripTags(b)).replace(Regex("\\s+"), " ").trim()
-
-    private fun isTocEntryBlock(b: String, text: String): Boolean {
-        if (text.isEmpty() || text.length > 60) return false
-        if (text.endsWith("。") || text.endsWith("！") || text.endsWith("？")) return false
-        if (Regex("""<(h[1-6]|img)\b""", RegexOption.IGNORE_CASE).containsMatchIn(b)) return false
-        return true
-    }
-
-    private fun stripTocSection(html: String): String? {
-        val blocks = htmlBlock.findAll(html).toList()
-        val hIdx = blocks.indices.take(6).firstOrNull { i ->
-            tocHeadingLine.containsMatchIn(blockText(blocks[i].value))
-        } ?: return html
-        var k = hIdx + 1
-        var entries = 0
-        while (k < blocks.size) {
-            val t = blockText(blocks[k].value)
-            if (t.isEmpty()) { k++; continue }
-            if (isTocEntryBlock(blocks[k].value, t)) { entries++; k++; continue }
-            break
-        }
-        if (entries < 2) return html
-        if (k >= blocks.size) return null
-        val out = html.substring(0, blocks[hIdx].range.first) + html.substring(blocks[k].range.first)
-        return out.ifBlank { null }
-    }
 
     /** One pagebreak-delimited chunk: its byte range plus the decoded text. */
     private class RawChunk(val start: Int, val text: String)

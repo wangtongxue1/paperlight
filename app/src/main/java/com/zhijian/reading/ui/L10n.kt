@@ -105,6 +105,13 @@ interface AppStrings {
     val authors: String
     val folder: String
     val onDisk: String
+    val storageToPublic: String
+    val storageToPrivate: String
+    val storageNote: String
+    val storageScan: String
+    val storageMoving: String
+    val storageMoveFailed: String
+    fun storageScanned(n: Int): String
     val unknown: String
     val untitled: String
 
@@ -338,6 +345,13 @@ object StringsZh : AppStrings {
     override val authors = "作者"
     override val folder = "存放位置"
     override val onDisk = "占用空间"
+    override val storageToPublic = "改到手机根目录 MyBooks"
+    override val storageToPrivate = "改回应用私有目录"
+    override val storageNote = "授权「所有文件访问」一次，书籍会存到手机根目录的 MyBooks 文件夹，用文件管理器就能直接放入或取出。"
+    override val storageScan = "扫描文件夹里的新书"
+    override val storageMoving = "正在迁移书库…"
+    override val storageMoveFailed = "迁移失败，书库仍留在原位置"
+    override fun storageScanned(n: Int) = if (n == 0) "没有发现新书" else "已导入 $n 本新书"
     override val unknown = "未知"
     override val untitled = "无标题"
 
@@ -565,6 +579,14 @@ object StringsEn : AppStrings {
     override val authors = "Authors"
     override val folder = "Folder"
     override val onDisk = "On disk"
+    override val storageToPublic = "Move to MyBooks in phone storage"
+    override val storageToPrivate = "Move back to the app folder"
+    override val storageNote = "Grant 所有文件访问 once and the books live in MyBooks at the root of phone storage, where any file manager can reach them."
+    override val storageScan = "Scan folder for new books"
+    override val storageMoving = "Moving the library…"
+    override val storageMoveFailed = "Could not move — the library stays where it was"
+    override fun storageScanned(n: Int) =
+        if (n == 0) "No new books found" else if (n == 1) "1 new book added" else "$n new books added"
     override val unknown = "Unknown"
     override val untitled = "Untitled"
 

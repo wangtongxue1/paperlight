@@ -12,10 +12,10 @@ android {
 
     defaultConfig {
         applicationId = "com.zhijian.reading"
-        minSdk = 26
-        targetSdk = 35
-        versionCode = 15
-        versionName = "1.5.7"
+        minSdk = 24
+        targetSdk = 34
+        versionCode = 16
+        versionName = "1.5.8"
         vectorDrawables { useSupportLibrary = true }
     }
 
@@ -48,6 +48,8 @@ android {
     }
 
     compileOptions {
+        // java.time on Android 7 needs the backported library.
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -74,6 +76,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
 
     implementation("io.coil-kt:coil-compose:2.7.0")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.3")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

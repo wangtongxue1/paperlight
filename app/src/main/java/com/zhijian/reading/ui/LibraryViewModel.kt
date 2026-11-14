@@ -12,6 +12,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.zhijian.reading.data.Book
 import com.zhijian.reading.data.BookFile
+import com.zhijian.reading.data.BookStorage
 import com.zhijian.reading.data.Counts
 import com.zhijian.reading.data.EpubMeta
 import com.zhijian.reading.data.Filter
@@ -31,7 +32,18 @@ data class ImportResult(val added: Int, val failed: List<String>)
 class LibraryViewModel(app: Application) : AndroidViewModel(app) {
 
     private val settings = Settings(app)
-    val library = Library(app, File(app.filesDir, "Library"))
+
+    /**
+     * The library folder in use. It is a `var` because the reader can move
+     * it — out to `MyBooks` on shared storage, or back to the app's own
+     * folder — and the shelf has to follow without a restart.
+     */
+    var library by mutableStateOf(Library(app, BookStorage.current(app, settings)))
+        private set
+
+    /** Absolute path of [library]'s root, as the 我的 page shows it. */
+    var libraryPath by mutableStateOf(library.root.absolutePath)
+        private set
 
     var books by mutableStateOf<List<Book>>(emptyList())
         private set
@@ -217,6 +229,101 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
         reload()
     }
 
+    // ---- Where the books live ---------------------------------------------
+
+    /** True while the library is being copied to its new folder. */
+    var storageBusy by mutableStateOf(false)
+        private set
+
+    /** True once the user asked for MyBooks and the system prompt is due. */
+    var awaitingStoragePermission by mutableStateOf(false)
+        private set
+
+    /** A short failure note for 我的 to show when a move did not work. */
+    var storageError by mutableStateOf<String?>(null)
+        private set
+
+    val usingPublicStorage: Boolean
+        get() = libraryPath == BookStorage.publicRoot().absolutePath
+
+    fun canUsePublicStorage(): Boolean = BookStorage.hasPublicAccess(getApplication())
+
+    /**
+     * Switches the library to `MyBooks` in shared storage. Returns false
+     * when the system permission is still missing — the caller then opens
+     * the 所有文件访问 page and [onStoragePermissionResult] finishes the job.
+     */
+    fun requestPublicStorage(): Boolean {
+        storageError = null
+        if (!canUsePublicStorage()) {
+            awaitingStoragePermission = true
+            return false
+        }
+        awaitingStoragePermission = false
+        moveLibraryTo(BookStorage.publicRoot())
+        return true
+    }
+
+    /** Back from the system permission page: finish the switch if granted. */
+    fun onStoragePermissionResult() {
+        if (!awaitingStoragePermission) return
+        if (!canUsePublicStorage()) return
+        awaitingStoragePermission = false
+        moveLibraryTo(BookStorage.publicRoot())
+    }
+
+    fun usePrivateStorage() {
+        val app = getApplication<Application>()
+        if (library.root.absolutePath == BookStorage.privateRoot(app).absolutePath) return
+        moveLibraryTo(BookStorage.privateRoot(app))
+    }
+
+    private fun moveLibraryTo(target: File) {
+        if (storageBusy) return
+        val app = getApplication<Application>()
+        viewModelScope.launch {
+            storageBusy = true
+            val moved = withContext(Dispatchers.IO) { BookStorage.moveTo(app, settings, target) }
+            if (moved == null) {
+                storageError = target.absolutePath
+            } else {
+                // The private folder is the default, so it is stored as
+                // "no choice" rather than as a path.
+                if (moved.absolutePath == BookStorage.privateRoot(app).absolutePath) {
+                    BookStorage.reset(settings)
+                }
+                withContext(Dispatchers.IO) { library.close() }
+                library = Library(app, moved)
+                libraryPath = moved.absolutePath
+                reload()
+            }
+            storageBusy = false
+        }
+    }
+
+    /**
+     * Files that were dropped into the library folder by hand (with the
+     * phone's own file manager) are picked up here: each unknown book file
+     * is read, given its folder, and moved inside it.
+     */
+    suspend fun scanLibraryFolder(): Int = withContext(Dispatchers.IO) {
+        val root = library.root
+        val known = HashSet<String>()
+        library.loadBooks().forEach { b ->
+            b.formats.forEach { f -> known += File(File(root, f.path), f.fileName).absolutePath }
+        }
+        val found = root.walkTopDown()
+            .filter { it.isFile && it.extension.uppercase() in SUPPORTED_FORMATS }
+            .toList()
+        var added = 0
+        found.forEach { f ->
+            if (f.absolutePath in known) return@forEach
+            if (fileIntoLibrary(f, f.name, move = true) == 1) added++
+        }
+        if (added > 0) reload()
+        added
+    }
+
     // ---- Import -----------------------------------------------------------
 
     /** Persisted SAF folder used by the in-app device browser, if any. */
@@ -324,9 +431,23 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
      * the format is not one this app knows.
      */
     suspend fun importFile(file: File, name: String): Boolean = withContext(Dispatchers.IO) {
+        val code = fileIntoLibrary(file, name, move = false)
+        // The picker's copy in the cache is ours to clean up either way.
+        if (code >= 0 && file.parentFile == getApplication<Application>().cacheDir) file.delete()
+        code >= 0
+    }
+
+    /**
+     * The one place a book file becomes a shelf entry: metadata, a row, the
+     * book's own folder and the file inside it. Returns 1 when it landed,
+     * 0 when the shelf already had that title, -1 when the format is
+     * unknown or the copy failed. [move] takes the file instead of copying
+     * it — what the library-folder scan needs.
+     */
+    private fun fileIntoLibrary(file: File, name: String, move: Boolean): Int {
         val ext = name.substringAfterLast('.', "").uppercase()
-        if (ext !in SUPPORTED_FORMATS) return@withContext false
-        runCatching {
+        if (ext !in SUPPORTED_FORMATS) return -1
+        return runCatching {
             // Metadata where the format carries it; the file name carries
             // the rest, so TXT/MD/HTML books still land with a real title.
             val meta = when (ext) {
@@ -344,10 +465,7 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
                 it.title.equals(title, ignoreCase = true) &&
                     it.authors.firstOrNull()?.equals(authors.first(), ignoreCase = true) == true
             }
-            if (known) {
-                if (file.parentFile == getApplication<Application>().cacheDir) file.delete()
-                return@withContext true
-            }
+            if (known) return@runCatching 0
             val id = library.insert(
                 title = title,
                 authors = authors,
@@ -371,9 +489,9 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
                 File(folder, "cover.jpg").writeBytes(bytes)
                 library.setCoverFlag(id, true)
             }
-            if (file.parentFile == getApplication<Application>().cacheDir) file.delete()
-            true
-        }.getOrDefault(false)
+            if (move && file.absolutePath != target.absolutePath) file.delete()
+            1
+        }.getOrDefault(-1)
     }
 
     /**

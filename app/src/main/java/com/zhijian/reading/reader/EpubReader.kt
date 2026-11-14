@@ -48,7 +48,7 @@ object EpubReader {
         // The book's own 目录 page (EPUB 3 nav or a spine item that is only
         // a chapter listing) belongs in the 目录 panel, not the reading flow:
         // drop it before numbering, so chapter indices stay contiguous.
-        val kept = spine.mapNotNull { idref ->
+        val pages = spine.mapNotNull { idref ->
             val item = manifest[idref] ?: return@mapNotNull null
             if (item.properties.split(Regex("\\s+")).contains("nav")) return@mapNotNull null
             val file = File(opfDir, item.href)
@@ -57,10 +57,20 @@ object EpubReader {
             if (TocStrip.isTocPageHtml(raw)) return@mapNotNull null
             Triple(idref, item, raw)
         }
+        // Each spine item also loses a 目录 block embedded inside it (some
+        // EPUBs keep the listing in the first chapter document instead of
+        // giving it a page of its own); a page left with nothing to read
+        // is dropped so it can't show up as a blank one.
+        var kept = pages.mapNotNull { (idref, item, raw) ->
+            val inner = TocStrip.stripSection(extractBody(raw)) ?: return@mapNotNull null
+            Triple(idref, item, inner)
+        }
+        if (kept.isEmpty()) {
+            kept = pages.map { (idref, item, raw) -> Triple(idref, item, extractBody(raw)) }
+        }
         val body = StringBuilder()
-        kept.forEachIndexed { index, (_, item, raw) ->
+        kept.forEachIndexed { index, (_, item, inner) ->
             val file = File(opfDir, item.href)
-            val inner = extractBody(raw)
             body.append(PageTemplate.chapter(index, rewriteImages(inner, file.parentFile ?: opfDir)))
         }
 

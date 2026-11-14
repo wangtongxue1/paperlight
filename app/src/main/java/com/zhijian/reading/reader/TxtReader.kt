@@ -42,8 +42,9 @@ object TxtReader {
             // sections. Real chapters always carry body text.
             if (buf.isBlank()) return
             // The preamble before the first heading can be the book's own
-            // 目录 listing; that belongs in the panel, not the flow.
-            if (index == 0 && TocStrip.isTocText(buf.toString())) return
+            // 目录 listing; that belongs in the panel, not the flow. The
+            // same goes for a 目录 section that survived as a chapter.
+            if (index <= 1 && TocStrip.isTocText(buf.toString())) return
             val name = if (currentTitle.isBlank()) title else currentTitle.trim()
             body.append(PageTemplate.chapter(index, "<h2>${PageTemplate.escape(name)}</h2>${PageTemplate.paragraphs(buf.toString())}"))
             toc += TocItem(index, name)

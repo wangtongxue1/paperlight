@@ -3,6 +3,18 @@
 纸间阅读 **Paperlight** —— Apple Books 风格的 Android 阅读器（EPUB / PDF / TXT / MOBI / AZW3 / HTML / MD / FB2）。
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.5.8] - 2026-11-14
+
+### 新增
+- 书库可迁移到手机根目录 `MyBooks`：在「我的-书库」点击「改到手机根目录 MyBooks」，授权「所有文件访问」后整库自动拷贝过去（文件管理器可直接放入/取出书籍）；可随时改回应用私有目录。
+- 「扫描文件夹里的新书」：把书文件丢进 MyBooks 后一键扫描入库，自动按 作者/书名 归档。
+
+### 修复
+- AZW3 整本文档开头残留的 "Contents" 空白页：剥离目录段时连同 XHTML 文档外壳（doctype/head/title/body 标签）一并移除，单文档切章时不再丢失第一个标题章节。
+- MOBI 只有「目录」标题、没有条目的空目录页（如《拖延心理学》首块）现会被整块剔除；书末 "Table of Contents" 条目块以问号结尾（如"…吗？"）也能正确识别为目录条目。
+- 目录剔除逻辑统一收敛到 `TocStrip.stripSection`，EPUB/MOBI/AZW3/HTML/TXT 全部走同一套判定；纯空白/无图文的分块不再渲染成页。
+- 兼容性：minSdk 26→24（Android 7.0，启用 core library desugaring），targetSdk 35→34。
+
 ## [1.5.7] - 2026-11-14
 
 ### 新增

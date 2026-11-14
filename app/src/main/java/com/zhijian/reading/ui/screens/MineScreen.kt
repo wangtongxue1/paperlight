@@ -1,5 +1,13 @@
 package com.zhijian.reading.ui.screens
 
+import android.Manifest
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings as SysSettings
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -18,9 +26,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.zhijian.reading.BuildConfig
@@ -33,6 +47,7 @@ import com.zhijian.reading.ui.strings
 import com.zhijian.reading.ui.theme.Radius
 import com.zhijian.reading.ui.theme.Type
 import com.zhijian.reading.ui.theme.palette
+import kotlinx.coroutines.launch
 
 /**
  * Me: who this library is — the numbers, the look, and where the books
@@ -49,6 +64,35 @@ fun MineScreen(
     val pal = palette
     val strings = strings
     val finished = vm.progress.values.count { it >= 0.99f }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var scanning by remember { mutableStateOf(false) }
+
+    // The switch only takes effect once the system grants 所有文件访问, so
+    // the move happens when that page comes back — not when it is opened.
+    val allFilesLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { vm.onStoragePermissionResult() }
+    val writeLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { vm.onStoragePermissionResult() }
+
+    fun switchStorage() {
+        if (vm.usingPublicStorage) {
+            vm.usePrivateStorage()
+            return
+        }
+        if (vm.requestPublicStorage()) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val intent = Intent(SysSettings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                .setData(Uri.parse("package:${context.packageName}"))
+            runCatching { allFilesLauncher.launch(intent) }.onFailure {
+                allFilesLauncher.launch(Intent(SysSettings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+            }
+        } else {
+            writeLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        }
+    }
 
     Column(
         Modifier
@@ -137,7 +181,37 @@ fun MineScreen(
             GroupCard(strings.librarySection) {
                 InfoLine(strings.onDisk, humanSize(vm.books.sumOf { it.size }))
                 Hairline()
-                InfoLine(strings.folder, vm.library.root.absolutePath, mono = true)
+                InfoLine(strings.folder, vm.libraryPath, mono = true)
+                Hairline()
+                ActionLine(
+                    title = when {
+                        vm.storageBusy -> strings.storageMoving
+                        vm.usingPublicStorage -> strings.storageToPrivate
+                        else -> strings.storageToPublic
+                    },
+                    note = if (vm.usingPublicStorage) null else strings.storageNote,
+                    enabled = !vm.storageBusy,
+                    onClick = { switchStorage() },
+                )
+                if (vm.usingPublicStorage) {
+                    Hairline()
+                    ActionLine(
+                        title = strings.storageScan,
+                        enabled = !scanning && !vm.storageBusy,
+                        onClick = {
+                            scanning = true
+                            scope.launch {
+                                val added = vm.scanLibraryFolder()
+                                scanning = false
+                                Toast.makeText(
+                                    context,
+                                    strings.storageScanned(added),
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        },
+                    )
+                }
             }
 
             // ---- about ----
@@ -259,5 +333,36 @@ private fun InfoLine(label: String, value: String, mono: Boolean = false) {
             color = pal.text,
             modifier = Modifier.weight(1f),
         )
+    }
+}
+
+/** A tappable row: the action in the accent colour, an optional note under it. */
+@Composable
+private fun ActionLine(
+    title: String,
+    note: String? = null,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    val pal = palette
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                title,
+                style = Type.body,
+                color = if (enabled) pal.accent else pal.textTertiary,
+            )
+            if (note != null) {
+                Spacer(Modifier.height(4.dp))
+                Text(note, style = Type.small, color = pal.textTertiary)
+            }
+        }
+        Text("›", style = Type.body.copy(fontSize = 18.sp), color = pal.textTertiary)
     }
 }
