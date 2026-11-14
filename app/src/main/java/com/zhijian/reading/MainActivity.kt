@@ -72,6 +72,7 @@ import com.zhijian.reading.ui.screens.EditScreen
 import com.zhijian.reading.ui.screens.LibraryScreen
 import com.zhijian.reading.ui.screens.LocalImportScreen
 import com.zhijian.reading.ui.screens.MineScreen
+import com.zhijian.reading.ui.screens.OnlineImportScreen
 import com.zhijian.reading.ui.screens.PdfReaderScreen
 import com.zhijian.reading.ui.screens.ReadingScreen
 import com.zhijian.reading.ui.screens.ReaderScreen
@@ -232,6 +233,7 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
                         onBrowse = { kind -> nav.navigate("browse/${kind.name}") },
                         onOpenSettings = { nav.navigate("settings") },
                         onImport = { nav.navigate("localimport") },
+                        onImportOnline = { nav.navigate("urlimport") },
                     )
                 }
 
@@ -365,6 +367,13 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
                     )
                 }
 
+                composable("urlimport") {
+                    OnlineImportScreen(
+                        vm = vm,
+                        onBack = { nav.popBackStack() },
+                    )
+                }
+
                 composable("reading") {
                     ReadingScreen(
                         vm = vm,
@@ -386,15 +395,11 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
                                 else -> nav.navigate("book/${book.id}")
                             }
                         },
-                        onOpenSettings = { nav.navigate("settings") },
                     )
                 }
 
                 composable("mine") {
-                    MineScreen(
-                        vm = vm,
-                        onImport = { nav.navigate("localimport") },
-                    )
+                    MineScreen(vm = vm)
                 }
 
                 // Settings opened from a gear/menu entry lands here: a pushed
@@ -403,7 +408,6 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
                 composable("settings") {
                     MineScreen(
                         vm = vm,
-                        onImport = { nav.navigate("localimport") },
                         showBack = true,
                         onBack = { nav.popBackStack() },
                     )

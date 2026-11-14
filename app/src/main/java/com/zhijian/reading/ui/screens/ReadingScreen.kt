@@ -55,7 +55,6 @@ fun ReadingScreen(
     vm: LibraryViewModel,
     onOpenBook: (Book) -> Unit,
     onContinue: (Book) -> Unit,
-    onOpenSettings: () -> Unit,
 ) {
     val pal = palette
     val strings = strings
@@ -93,7 +92,7 @@ fun ReadingScreen(
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(start = 20.dp, end = 12.dp, top = 14.dp, bottom = 6.dp),
+                .padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
@@ -107,15 +106,6 @@ fun ReadingScreen(
                     style = Type.small,
                     color = pal.textTertiary,
                 )
-            }
-            Box(
-                Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(Radius.md.dp))
-                    .clickable(onClick = onOpenSettings),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_a_gear), null, tint = pal.icon, modifier = Modifier.size(21.dp))
             }
         }
 

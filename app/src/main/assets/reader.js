@@ -145,6 +145,7 @@
       // leave the pager parked between two columns.
       commitDrag(p, R.page);
     } else {
+      prog(500);
       pager.scrollLeft = colScroll(p);
       animUntil = Date.now() + 300;
       setTimeout(postMetrics, 80);
@@ -172,6 +173,7 @@
     if (Math.abs(sl - want) > 6) {
       console.log('[pl] snap heal: sl=' + sl + ' want=' + want + ' page=' + p);
       animUntil = Date.now() + 450;
+      prog(700);
       try { pager.scrollTo({ left: want, behavior: 'smooth' }); }
       catch (e) { pager.scrollLeft = want; }
     } else if (sl !== want) {
@@ -184,8 +186,19 @@
   // real device — measured), which is exactly the page-turn jank. Native
   // scroll commits of the same layer cost ~14ms.
   var glideId = 0;
+
+  // The app drops into fullscreen while the reader slides under a finger.
+  // Track the last touch, and stamp our own programmatic scrolls (restores,
+  // seeks, auto-scroll, snap heals) so they never read as a user swipe.
+  var lastTouch = 0;
+  var progUntil = 0;
+  function prog(ms) { progUntil = Date.now() + (ms || 650); }
+  document.addEventListener('touchstart', function () { lastTouch = Date.now(); }, { passive: true, capture: true });
+  document.addEventListener('touchend', function () { lastTouch = Date.now(); }, { passive: true, capture: true });
+
   function glideTo(target, dur) {
     if (!pager) return;
+    prog((dur || 220) + 400);
     var n = pageCount();
     target = Math.max(0, Math.min(n - 1, target));
     dur = dur || 220;
@@ -257,6 +270,7 @@
       if (!drag.active) {
         if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(dy)) { if (Math.abs(dy) > 14) drag = null; return; }
         drag.active = true;
+        post('drag', { kind: 'paged' });
         flow.style.userSelect = 'none';
         try { window.getSelection().removeAllRanges(); } catch (err) { }
       }
@@ -336,7 +350,13 @@
   var mT = null;
   function scrollSoon() {
     clearTimeout(mT);
-    mT = setTimeout(function () { postMetrics(); snapCheck(); }, 140);
+    mT = setTimeout(function () {
+      postMetrics(); snapCheck();
+      // A scroll while (or just after) a finger was down, and not one of
+      // our own programmatic scrolls, means the user is reading by
+      // sliding — the app hides the chrome and goes fullscreen.
+      if (Date.now() >= progUntil && Date.now() - lastTouch < 700) post('drag', { kind: 'scroll' });
+    }, 140);
   }
   document.addEventListener('scroll', scrollSoon, { passive: true, capture: true });
   window.addEventListener('scroll', scrollSoon, { passive: true });
@@ -614,6 +634,7 @@
       var r = R.ratio;
       disablePaged();
       var max = doc.scrollHeight - window.innerHeight;
+      prog(700);
       window.scrollTo(0, r * Math.max(0, max));
     }
     setTimeout(postMetrics, 100);
@@ -656,12 +677,14 @@
 
   /** Scroll mode: slide one screenful up (-1) or down (1). */
   R.scrollScreens = function (n) {
+    prog(900);
     var d = (n < 0 ? -1 : 1) * window.innerHeight * 0.86;
     try { window.scrollBy({ top: d, behavior: 'smooth' }); }
     catch (e) { window.scrollBy(0, d); }
   };
 
   function gotoRatio(r) {
+    prog(900);
     r = Math.min(1, Math.max(0, r));
     if (R.mode === 'paged' && pager) {
       var n = pageCount();

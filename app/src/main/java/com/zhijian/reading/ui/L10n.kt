@@ -56,6 +56,13 @@ interface AppStrings {
     val shelfSortTitle: String
     val shelfSortCategory: String
     val shelfSortWords: String
+    val shelfUncategorized: String
+    val importChooseTitle: String
+    val importOnline: String
+    val importOnlineNote: String
+    val importLocal: String
+    val importLocalNote: String
+    val onlineImportTitle: String
 
     // ---- reading now ----
     val continueReading: String
@@ -280,6 +287,13 @@ object StringsZh : AppStrings {
     override val shelfSortTitle = "书名"
     override val shelfSortCategory = "分类"
     override val shelfSortWords = "字数"
+    override val shelfUncategorized = "未分类"
+    override val importChooseTitle = "导入书籍"
+    override val importOnline = "在线导入"
+    override val importOnlineNote = "填写文件直链，下载后自动进书架"
+    override val importLocal = "本机导入"
+    override val importLocalNote = "浏览本机目录，勾选导入"
+    override val onlineImportTitle = "在线导入"
 
     override val continueReading = "继续阅读"
     override val recentlyAdded = "最近添加"
@@ -497,6 +511,13 @@ object StringsEn : AppStrings {
     override val shelfSortTitle = "Title"
     override val shelfSortCategory = "Category"
     override val shelfSortWords = "Length"
+    override val shelfUncategorized = "Uncategorized"
+    override val importChooseTitle = "Add books"
+    override val importOnline = "Online import"
+    override val importOnlineNote = "Paste a direct file link, it lands on the shelf"
+    override val importLocal = "On this device"
+    override val importLocalNote = "Browse a local folder and pick books"
+    override val onlineImportTitle = "Online import"
 
     override val continueReading = "Continue Reading"
     override val recentlyAdded = "Recently Added"

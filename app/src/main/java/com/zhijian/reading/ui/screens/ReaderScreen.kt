@@ -339,6 +339,11 @@ fun ReaderScreen(
                     ratio = ratio,
                 )
             }
+            "drag" -> {
+                // The reader slid under a finger: drop into fullscreen
+                // reading. A tap on the middle brings the chrome back.
+                if (panel == null) chromeOn = false
+            }
             "search" -> {
                 searchCount = obj.optInt("count", 0)
                 searchAt = if (searchCount > 0) 0 else -1
