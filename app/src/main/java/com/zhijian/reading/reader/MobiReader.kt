@@ -45,17 +45,21 @@ object MobiReader {
                 }
             }
 
-            val chapters = mobi.html.split(Regex("<mbp:pagebreak[^>]*/?>", RegexOption.IGNORE_CASE))
-            chapters.forEachIndexed { i, chunk ->
-                val cleaned = chunk
-                    .replace(Regex("<mbp:(header|footer)[\\s\\S]*?</mbp:(header|footer)>", RegexOption.IGNORE_CASE), "")
-                    .trim()
-                if (cleaned.isBlank()) return@forEachIndexed
-                body.append(PageTemplate.chapter(i, rewritten(cleaned, imageUris)))
-            }
-            if (body.isEmpty()) return null
+            // The body keeps chapters only: a page that is just the book's
+            // own table of contents (heading 目录 + a wall of links) lives
+            // in the TOC panel, not in the reading flow.
+            val chunks = mobi.html
+                .split(Regex("<mbp:pagebreak[^>]*/?>", RegexOption.IGNORE_CASE))
+                .map { it.replace(Regex("<mbp:(header|footer)[\\s\\S]*?</mbp:(header|footer)>", RegexOption.IGNORE_CASE), "").trim() }
+                .filter { it.isNotBlank() }
 
-            val toc = buildToc(mobi.html.split(Regex("<mbp:pagebreak[^>]*/?>", RegexOption.IGNORE_CASE)))
+            val sections = chunks.mapIndexed { i, chunk ->
+                PageTemplate.chapter(i, rewritten(chunk, imageUris))
+            }
+            if (sections.isEmpty()) return null
+            sections.forEach { body.append(it) }
+
+            val toc = buildToc(chunks)
             BookContent(
                 html = PageTemplate.wrap(mobi.title, body.toString(), theme),
                 baseUrl = imgDir.toURI().toString(),
@@ -347,19 +351,36 @@ object MobiReader {
         else -> null
     }
 
-    /** recindex attributes point at image records; rewrite them to file URIs. */
+    /**
+     * recindex attributes point at image records; rewrite the whole tag to a
+     * clean `<img ... src="file-uri"/>`. Real books emit forms like
+     * `<img align="baseline" recindex="00010" width="525"></img>`, so the
+     * match must span the full open tag and the rebuilt tag carries its own
+     * closing bracket — appending `src` after the original `>` used to leak
+     * it as body text and leave a broken image behind.
+     */
     private fun rewritten(html: String, images: Map<Int, String>): String =
-        Regex("""(<img[^>]*?)\s*(recindex|lowrecindex|coverrecindex)="(\d+)"([^>]*>)""", RegexOption.IGNORE_CASE)
+        Regex("""<img[^>]*?\s(recindex|lowrecindex|coverrecindex)="(\d+)"[^>]*?/?>""", RegexOption.IGNORE_CASE)
             .replace(html) { m ->
-                val n = m.groupValues[3].toIntOrNull() ?: 0
-                val uri = images[n]
-                if (uri != null) {
-                    val attrs = (m.groupValues[1] + m.groupValues[4])
-                        .replace(Regex("""\s+(recindex|lowrecindex|coverrecindex|recglerowsperpixel|recglyph)="[^"]*"""", RegexOption.IGNORE_CASE), "")
-                    "$attrs src=\"$uri\"/>"
-                } else ""
+                val n = m.groupValues[2].toIntOrNull() ?: 0
+                val uri = images[n] ?: return@replace ""
+                m.groupValues[0]
+                    .replace(Regex("""\s(recindex|lowrecindex|coverrecindex|recglerowsperpixel|recglyph)="[^"]*""", RegexOption.IGNORE_CASE), "")
+                    .removeSuffix("/>").removeSuffix(">") + " src=\"$uri\"/>"
             }
             .replace(Regex("""\s(recindex|lowrecindex|multimediarecindex|audiorecindex|coverage recindex)="[^"]*"""", RegexOption.IGNORE_CASE), "")
+
+    /**
+     * A page that is nothing but a link listing under a 目录 heading. Real
+     * conversions (calibre, KINDLEGEN) emit one as the first pagebreak
+     * chunk; the reading flow doesn't need it twice.
+     */
+    private fun isTocPage(chunk: String): Boolean {
+        val linkCount = Regex("<a[\\s>]", RegexOption.IGNORE_CASE).findAll(chunk).count()
+        if (linkCount < 3) return false
+        val text = PageTemplate.unescape(PageTemplate.stripTags(chunk)).replace(Regex("\\s+"), "")
+        return text.startsWith("目录")
+    }
 
     /** One TOC entry per pagebreak chapter, titled by its first heading/text. */
     private fun buildToc(chunks: List<String>): List<TocItem> {

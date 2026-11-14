@@ -29,7 +29,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -565,8 +564,10 @@ fun ReaderScreen(
                     Modifier
                         .fillMaxWidth()
                         .background(chromeBg)
-                        .padding(horizontal = 8.dp, vertical = 6.dp)
-                        .padding(top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()),
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    // NOTE: no statusBars padding here — MainActivity already
+                    // pads the whole NavHost below the status bar; adding it
+                    // again doubles the blank strip above the bar.
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(
@@ -616,8 +617,11 @@ fun ReaderScreen(
             }
         }
 
-        // ---- quiet footer: chapter + position in the page's own margin ----
-        if (!chromeOn) {
+        // ---- quiet footer: chapter + page in the page's own margin band ----
+        // Paged mode only: pages reserve a bottom margin band for it. In
+        // scroll mode a floating footer would sit on top of the passing
+        // text, so there the progress lives in the chrome only.
+        if (!chromeOn && info.mode == "paged" && info.pages > 0) {
             val footerInk = chromeInkFaint
             Row(
                 Modifier

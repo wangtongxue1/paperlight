@@ -26,7 +26,7 @@ object HtmlReader {
     private fun plainHtml(file: File, theme: String): BookContent? = runCatching {
         val raw = TxtReader.readText(file) ?: return null
         val title = guessTitle(raw) ?: EpubMeta.fileTitleFallback(file.nameWithoutExtension)
-        val body = extractBody(raw)
+        val body = stripTocBlock(extractBody(raw))
         BookContent(
             html = PageTemplate.wrap(title, PageTemplate.chapter(0, body), theme),
             baseUrl = file.parentFile?.toURI().toString(),
@@ -34,6 +34,16 @@ object HtmlReader {
             toc = listOf(TocItem(0, title)),
         )
     }.getOrNull()
+
+    /**
+     * The book's own TOC listing (a 目录 heading followed by a run of
+     * anchors) belongs in the TOC panel, not in the reading flow.
+     */
+    private fun stripTocBlock(html: String): String =
+        Regex(
+            """<(h[1-6]|b|strong|p|div)[^>]*>\s*目\s*录\s*</\1>\s*(?:\s*<a[^>]*>[\s\S]*?</a>\s*){3,}""",
+            RegexOption.IGNORE_CASE,
+        ).replace(html, "")
 
     private fun guessTitle(raw: String): String? {
         val m = Regex("<title[^>]*>(.*?)</title>", RegexOption.DOT_MATCHES_ALL)
