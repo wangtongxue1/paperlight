@@ -170,6 +170,10 @@ interface AppStrings {
     val autoMid: String
     val autoFast: String
     val autoFinished: String
+    val readerProgress: String
+    val readerChapter: String
+    val readerPage: String
+    val jumpBookEnd: String
     fun pdfPageOf(cur: Int, total: Int): String
 
     // ---- get books / import ----
@@ -381,6 +385,10 @@ object StringsZh : AppStrings {
     override val autoMid = "中速"
     override val autoFast = "快速"
     override val autoFinished = "已到全书末尾，自动翻页停止"
+    override val readerProgress = "进度"
+    override val readerChapter = "章节"
+    override val readerPage = "页码"
+    override val jumpBookEnd = "去底部"
     override fun pdfPageOf(cur: Int, total: Int) = "第 $cur / $total 页"
 
     override val getBooksTitle = "导入"
@@ -590,6 +598,10 @@ object StringsEn : AppStrings {
     override val autoMid = "Mid"
     override val autoFast = "Fast"
     override val autoFinished = "Reached the end; auto turn stopped"
+    override val readerProgress = "Progress"
+    override val readerChapter = "Chapter"
+    override val readerPage = "Page"
+    override val jumpBookEnd = "Go to end"
     override fun pdfPageOf(cur: Int, total: Int) = "Page $cur of $total"
 
     override val getBooksTitle = "Import"
