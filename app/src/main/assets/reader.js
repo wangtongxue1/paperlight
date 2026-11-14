@@ -24,6 +24,11 @@
   // 微信读书 measured proportions (1220x2656 @ dpr 3.25):
   //   horizontal margin 30px, text ink starts 116px from screen top,
   //   column bottom ~57px above screen bottom, font 20px / line 38px.
+  //   PADBOT 57 is measured, not guessed: WeChat Read's own column bottom
+  //   lands in the 47-66css band — exactly "17 plain lines fit, 17+one
+  //   paragraph gap does not". Its 8-page sample bottoms out at ink 2402
+  //   (2-gap pages) and 2340 (1-gap pages); 40 made us denser than WeChat
+  //   ever shows, 57+0.9em paragraph margin reproduces its distribution.
   var PAD = 30;   // horizontal padding inside each column, matches the page's
   var GAP = 2 * PAD;  // gutter = two page margins, so each page shows
                       // [margin][column][margin] with symmetric 30px edges

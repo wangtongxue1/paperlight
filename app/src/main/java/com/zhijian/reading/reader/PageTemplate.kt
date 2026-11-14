@@ -54,7 +54,7 @@ object PageTemplate {
               h1, h2, h3, h4 { line-height: 1.32; margin: 1.6em 0 .8em; font-weight: 600; }
               h1 { font-size: 1.35em; } h2 { font-size: 1.18em; } h3 { font-size: 1.06em; }
               /* 微信读书 paragraphs are flush-left with paragraph spacing, no indent */
-              p { margin: 0 0 1em; text-align: justify; }
+              p { margin: 0 0 .9em; text-align: justify; }
               img { max-width: 100%; height: auto; display: block; margin: 1.2em auto; }
               blockquote { margin: 1em 0; padding-left: 1em; border-left: 2px solid var(--rule); color: var(--dim); }
               a { color: var(--link); text-decoration: none; }
