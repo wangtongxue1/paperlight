@@ -263,6 +263,11 @@ fun ReaderScreen(
                 textZoom = 100
             }
             isVerticalScrollBarEnabled = false
+            // Remote debugging lets the CDP probe trace Chromium's raster
+            // and frame timings — the tool we need to chase page-turn jank.
+            if (com.zhijian.reading.BuildConfig.DEBUG) {
+                android.webkit.WebView.setWebContentsDebuggingEnabled(true)
+            }
             addJavascriptInterface(
                 ReaderBridge { type, data -> ui.post { sink.receive?.invoke(type, data) } },
                 "AndroidReader",

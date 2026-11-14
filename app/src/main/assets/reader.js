@@ -178,21 +178,49 @@
     }
   }
 
-  function commitDrag(target, from) {
-    var dest = -(target - from) * STEP;
-    flow.style.transition = 'transform 230ms ease-out';
-    dragTransform(dest);
-    setTimeout(function () {
-      flow.style.transition = 'none';
-      flow.style.transform = '';
-      if (pager) {
-        var n = pageCount();
-        target = Math.max(0, Math.min(n - 1, target));
-        pager.scrollLeft = colScroll(target);
-        animUntil = Date.now() + 300;
-      }
+  // The turn glide is a rAF-driven scrollLeft animation, NOT a transform.
+  // Setting transform on the whole-book multicol flow forces Chromium to
+  // re-record/repaint the giant layer twice per turn (~270ms each on a
+  // real device — measured), which is exactly the page-turn jank. Native
+  // scroll commits of the same layer cost ~14ms.
+  var glideId = 0;
+  function glideTo(target, dur) {
+    if (!pager) return;
+    var n = pageCount();
+    target = Math.max(0, Math.min(n - 1, target));
+    dur = dur || 220;
+    var from = pager.scrollLeft, to = colScroll(target);
+    if (glideId) cancelAnimationFrame(glideId);
+    glideId = 0;
+    if (Math.abs(to - from) < 1) {
+      pager.scrollLeft = to;
+      animUntil = 0;
       postMetrics();
-    }, 240);
+      snapCheck();
+      return;
+    }
+    var t0 = performance.now();
+    animUntil = Date.now() + dur + 80;
+    function step() {
+      if (!pager) return;
+      var k = Math.min(1, (performance.now() - t0) / dur);
+      var e = 1 - Math.pow(1 - k, 3); // easeOutCubic
+      pager.scrollLeft = from + (to - from) * e;
+      if (k < 1) {
+        glideId = requestAnimationFrame(step);
+      } else {
+        glideId = 0;
+        pager.scrollLeft = to;
+        animUntil = 0;
+        postMetrics();
+        snapCheck();
+      }
+    }
+    glideId = requestAnimationFrame(step);
+  }
+
+  function commitDrag(target, from) {
+    glideTo(target);
   }
 
   // ---------- finger-follow page drag ----------
@@ -203,18 +231,19 @@
   // position commits under the transform so nothing ever jumps.
   var drag = null;
 
-  function dragTransform(px) {
-    flow.style.transform = 'translateX(' + px + 'px)';
-  }
 
   document.addEventListener('touchstart', function (e) {
     if (R.mode !== 'paged' || !pager || !flow) return;
     if (e.touches.length !== 1) return;
     var sel = window.getSelection && window.getSelection();
     if (sel && !sel.isCollapsed) return;
+    // Catch a page mid-glide: stop the glide here and continue from where
+    // the content actually sits, so rapid successive turns never snap back.
+    if (glideId) { cancelAnimationFrame(glideId); glideId = 0; animUntil = 0; }
     drag = {
       x: e.touches[0].clientX, y: e.touches[0].clientY,
       t: Date.now(), dx: 0, vx: 0, lx: e.touches[0].clientX, lt: Date.now(),
+      base: pager ? pager.scrollLeft : 0,
       page: R.page, active: false, id: e.touches[0].identifier,
     };
   }, { passive: true });
@@ -238,7 +267,8 @@
         drag.vx = drag.vx * 0.7 + iv * 0.3;
         drag.lx = t.clientX; drag.lt = now;
       }
-      dragTransform(dx);
+      var max = Math.max(0, flow.scrollWidth - pager.clientWidth);
+      pager.scrollLeft = Math.max(0, Math.min(max, drag.base - dx));
     }
   }, { passive: true });
 
