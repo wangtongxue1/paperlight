@@ -85,6 +85,10 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
     var lastOpen by mutableStateOf(settings.allLastOpen())
         private set
 
+    /** How many times each book has been read to the end. */
+    var readCounts by mutableStateOf(settings.allReadCounts())
+        private set
+
     /** Seconds spent reading, across the whole library. */
     var readSeconds by mutableStateOf(settings.totalReadingSeconds())
         private set
@@ -108,6 +112,7 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
             if (canUsePublicStorage() && !usingPublicStorage) {
                 migrateTo(BookStorage.publicRoot())
             }
+            withContext(Dispatchers.IO) { seedReadCounts() }
             reload()
             ready = true
         }
@@ -119,6 +124,7 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
             books = list
             readingIds = settings.readingIds()
             progress = settings.allProgress()
+            readCounts = settings.allReadCounts()
         }
     }
 
@@ -227,8 +233,41 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
 
     fun markRead(bookId: Long, progress: Float) {
         settings.markRead(bookId, progress)
+        // Reaching the last page counts as one read-through, once: the tick
+        // stays set until the book is deliberately started over, so scrolling
+        // back over the end does not count again.
+        if (progress >= FINISHED_AT && !settings.isCountedFinished(bookId)) {
+            settings.setCountedFinished(bookId, true)
+            settings.bumpReadCount(bookId)
+            readCounts = settings.allReadCounts()
+        }
         readingIds = settings.readingIds()
         this.progress = settings.allProgress()
+    }
+
+    /**
+     * Starts [book] over from the first page — what 已读完 offers when the
+     * reader is opened again. The number of read-throughs is kept, the tick
+     * that guarded it is cleared so finishing it again counts once more.
+     */
+    fun restartReading(book: Book) {
+        settings.markRead(book.id, 0f)
+        settings.setCountedFinished(book.id, false)
+        readingIds = settings.readingIds()
+        progress = settings.allProgress()
+    }
+
+    /**
+     * Books finished before counts existed have no number yet: give them the
+     * one read they clearly had, so a re-read lands on 2 rather than 1.
+     */
+    private fun seedReadCounts() {
+        settings.allProgress().forEach { (id, p) ->
+            if (p >= FINISHED_AT && settings.readCount(id) == 0) {
+                settings.bumpReadCount(id)
+                settings.setCountedFinished(id, true)
+            }
+        }
     }
 
     /** Replaces a book's cover with the JPEG bytes given. */
@@ -659,6 +698,9 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
     private fun loadBooks(): List<Book> = library.loadBooks()
 
     companion object {
+
+        /** Where "read to the end" begins, shared by every screen. */
+        const val FINISHED_AT = 0.98f
 
         /** Only formats the reader can actually open in-app. */
         val SUPPORTED_FORMATS = com.zhijian.reading.data.BookSniff.KNOWN

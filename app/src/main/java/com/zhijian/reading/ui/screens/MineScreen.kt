@@ -57,10 +57,17 @@ fun MineScreen(
     onBack: () -> Unit = {},
     /** Space kept free at the bottom for the floating dock. */
     bottomInset: Dp = 0.dp,
+    /** The three numbers open what they count: shelf, reading, finished. */
+    onOpenLibrary: () -> Unit = {},
+    onOpenReading: () -> Unit = {},
+    onOpenFinished: () -> Unit = {},
 ) {
     val pal = palette
     val strings = strings
-    val finished = vm.progress.values.count { it >= 0.99f }
+    // Same cut the 正在阅读 page uses: started but not finished, so the
+    // number and the page it opens always agree.
+    val reading = vm.progress.values.count { it >= 0.01f && it < LibraryViewModel.FINISHED_AT }
+    val finished = vm.progress.values.count { it >= LibraryViewModel.FINISHED_AT }
     val context = LocalContext.current
 
     // The move only takes effect once the system grants 所有文件访问, so it
@@ -131,9 +138,12 @@ fun MineScreen(
             // ---- the library in three numbers, plus the time spent ----
             StatsCard(
                 books = vm.books.size,
-                reading = vm.readingIds.size,
+                reading = reading,
                 finished = finished,
                 timeText = readingTimeLabel(vm.readSeconds, strings),
+                onBooks = onOpenLibrary,
+                onReading = onOpenReading,
+                onFinished = onOpenFinished,
             )
 
             // ---- appearance ----
@@ -236,7 +246,15 @@ private fun readingTimeLabel(totalSeconds: Long, strings: com.zhijian.reading.ui
 }
 
 @Composable
-private fun StatsCard(books: Int, reading: Int, finished: Int, timeText: String) {
+private fun StatsCard(
+    books: Int,
+    reading: Int,
+    finished: Int,
+    timeText: String,
+    onBooks: () -> Unit = {},
+    onReading: () -> Unit = {},
+    onFinished: () -> Unit = {},
+) {
     val pal = palette
     val strings = strings
     Row(
@@ -247,20 +265,31 @@ private fun StatsCard(books: Int, reading: Int, finished: Int, timeText: String)
             .padding(vertical = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        StatCell(strings.bookCountLabel, "$books", Modifier.weight(1f))
+        StatCell(strings.bookCountLabel, "$books", Modifier.weight(1f), onClick = onBooks)
         StatDivider()
-        StatCell(strings.statReading, "$reading", Modifier.weight(1f))
+        StatCell(strings.statReading, "$reading", Modifier.weight(1f), onClick = onReading)
         StatDivider()
-        StatCell(strings.finished, "$finished", Modifier.weight(1f))
+        StatCell(strings.finished, "$finished", Modifier.weight(1f), onClick = onFinished)
         StatDivider()
         StatCell(strings.statReadingTime, timeText, Modifier.weight(1.25f), valueSize = 17)
     }
 }
 
 @Composable
-private fun StatCell(label: String, value: String, modifier: Modifier = Modifier, valueSize: Int = 24) {
+private fun StatCell(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    valueSize: Int = 24,
+    onClick: (() -> Unit)? = null,
+) {
     val pal = palette
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        modifier
+            .then(if (onClick != null) Modifier.clip(RoundedCornerShape(Radius.md.dp)).clickable(onClick = onClick) else Modifier)
+            .padding(vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         Text(
             value,
             style = Type.display.copy(fontSize = valueSize.sp, lineHeight = (valueSize + 4).sp),

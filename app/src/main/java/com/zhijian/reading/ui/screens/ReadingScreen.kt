@@ -23,10 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,6 +52,8 @@ fun ReadingScreen(
     vm: LibraryViewModel,
     onOpenBook: (Book) -> Unit,
     onContinue: (Book) -> Unit,
+    /** 查看更多: the rest of the books under way, on a page of their own. */
+    onShowMore: () -> Unit = {},
 ) {
     val pal = palette
     val strings = strings
@@ -66,10 +65,8 @@ fun ReadingScreen(
             .sortedByDescending { lastOpen[it.id] ?: 0L }
     }
     val finished = remember(vm.books, progress) {
-        vm.books.filter { (progress[it.id] ?: 0f) >= 0.98f }
+        vm.books.filter { (progress[it.id] ?: 0f) >= LibraryViewModel.FINISHED_AT }
     }
-    // 展开更多在读书目：跨重组记住，不然点开又被重置。
-    var showAllReading by remember { mutableStateOf(false) }
     // "Recently added" is capped at nine jackets so the grid stays a tidy
     // block instead of running on forever.
     val recent = remember(vm.books) {
@@ -77,10 +74,10 @@ fun ReadingScreen(
     }
     val hero = inProgress.firstOrNull()
     val featured = hero ?: recent.firstOrNull()
-    // The history of books under way: three by default, more on demand.
-    val historyReading = remember(inProgress, hero, showAllReading) {
-        val list = inProgress.filter { it.id != hero?.id }
-        if (showAllReading) list else list.take(3)
+    // The history of books under way: the three after the hero; the rest
+    // live on the 正在阅读 page that 查看更多 opens.
+    val historyReading = remember(inProgress, hero) {
+        inProgress.filter { it.id != hero?.id }.take(3)
     }
     val historyHidden = inProgress.count { it.id != hero?.id } > 3
     val recentRest = remember(recent, featured) {
@@ -153,8 +150,8 @@ fun ReadingScreen(
                     item {
                         SectionTitleWithAction(
                             text = strings.titleReading,
-                            action = if (historyHidden && !showAllReading) strings.viewMoreHistory else null,
-                            onAction = { showAllReading = true },
+                            action = if (historyHidden) strings.viewMoreHistory else null,
+                            onAction = onShowMore,
                         )
                     }
                     item {

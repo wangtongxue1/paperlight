@@ -95,7 +95,41 @@ class Settings(context: Context) {
             .toMap()
 
     fun clearProgress(bookId: Long) {
-        reading.edit().remove("p$bookId").remove("t$bookId").remove("o$bookId").apply()
+        reading.edit()
+            .remove("p$bookId")
+            .remove("t$bookId")
+            .remove("o$bookId")
+            .remove("c$bookId")
+            .remove("f$bookId")
+            .apply()
+    }
+
+    // ---- How many times each book was read through -------------------------
+    // Keys "c$bookId" count the finishes; "f$bookId" is the tick that keeps
+    // one finish from being counted twice when the reader scrolls back over
+    // the last page and forward again.
+
+    fun readCount(bookId: Long): Int = reading.getInt("c$bookId", 0)
+
+    fun bumpReadCount(bookId: Long): Int {
+        val next = readCount(bookId) + 1
+        reading.edit().putInt("c$bookId", next).apply()
+        return next
+    }
+
+    fun allReadCounts(): Map<Long, Int> =
+        reading.all.entries
+            .mapNotNull { (k, v) ->
+                val id = k.drop(1).takeIf { k.startsWith("c") }?.toLongOrNull() ?: return@mapNotNull null
+                val n = (v as? Int) ?: return@mapNotNull null
+                if (n > 0) id to n else null
+            }
+            .toMap()
+
+    fun isCountedFinished(bookId: Long): Boolean = reading.getBoolean("f$bookId", false)
+
+    fun setCountedFinished(bookId: Long, done: Boolean) {
+        reading.edit().putBoolean("f$bookId", done).apply()
     }
 
     // ---- Reading time -------------------------------------------------------

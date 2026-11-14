@@ -67,6 +67,8 @@ import com.zhijian.reading.ui.strings
 import com.zhijian.reading.ui.stringsFor
 import com.zhijian.reading.ui.screens.BrowseKind
 import com.zhijian.reading.ui.screens.BrowseScreen
+import com.zhijian.reading.ui.screens.CollectionKind
+import com.zhijian.reading.ui.screens.CollectionScreen
 import com.zhijian.reading.ui.screens.DetailScreen
 import com.zhijian.reading.ui.screens.EditScreen
 import com.zhijian.reading.ui.screens.LibraryScreen
@@ -179,6 +181,25 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
             } else {
                 Toast.makeText(context, strings.coverFail, Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+
+    /**
+     * Opens [book] where the reader left it — the one way in from 阅读,
+     * 正在阅读 and 已读完 alike, so every entry point behaves the same.
+     */
+    fun startReading(book: Book) {
+        lastOpened = book.id
+        val formats = book.formats.map { it.format.uppercase() }
+        val supported = com.zhijian.reading.reader.BookDecoder.SUPPORTED
+        when {
+            "EPUB" in formats -> nav.navigate("read/${book.id}/EPUB")
+            "PDF" in formats -> nav.navigate("pdf/${book.id}")
+            formats.any { it in supported } -> {
+                val f = formats.first { it in supported }
+                nav.navigate("read/${book.id}/$f")
+            }
+            else -> nav.navigate("book/${book.id}")
         }
     }
 
@@ -387,25 +408,60 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
                             lastOpened = book.id
                             nav.navigate("book/${book.id}")
                         },
-                        onContinue = { book ->
-                            lastOpened = book.id
-                            val formats = book.formats.map { it.format.uppercase() }
-                            val supported = com.zhijian.reading.reader.BookDecoder.SUPPORTED
-                            when {
-                                "EPUB" in formats -> nav.navigate("read/${book.id}/EPUB")
-                                "PDF" in formats -> nav.navigate("pdf/${book.id}")
-                                formats.any { it in supported } -> {
-                                    val f = formats.first { it in supported }
-                                    nav.navigate("read/${book.id}/$f")
-                                }
-                                else -> nav.navigate("book/${book.id}")
-                            }
+                        onContinue = { book -> startReading(book) },
+                        onShowMore = { nav.navigate("collection/reading") },
+                    )
+                }
+
+                // 正在阅读 / 已读完 as pages of their own, reached from 阅读's
+                // 查看更多 and from the numbers on 我的.
+                composable("collection/{kind}") { entry ->
+                    val kind = if (entry.arguments?.getString("kind") == "finished") {
+                        CollectionKind.Finished
+                    } else {
+                        CollectionKind.Reading
+                    }
+                    CollectionScreen(
+                        vm = vm,
+                        kind = kind,
+                        onBack = { nav.popBackStack() },
+                        onRead = { book ->
+                            // Re-reading starts the book over: the progress
+                            // is recalculated, the times read are kept.
+                            if (kind == CollectionKind.Finished) vm.restartReading(book)
+                            startReading(book)
                         },
                     )
                 }
 
                 composable("mine") {
-                    MineScreen(vm = vm, bottomInset = dockSpace)
+                    MineScreen(
+                        vm = vm,
+                        bottomInset = dockSpace,
+                        onOpenLibrary = {
+                            // 藏书 opens the whole shelf, whatever filter was
+                            // left on it last time.
+                            vm.setFilter(com.zhijian.reading.data.Filter.All)
+                            nav.navigate("library") {
+                                popUpTo("library") { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
+                        onOpenReading = { nav.navigate("collection/reading") },
+                        onOpenFinished = { nav.navigate("collection/finished") },
+                    )
+                }
+
+                // Settings opened from a gear/menu entry lands here: a pushed
+                // page with its own back chevron, not a dock tab, so there is
+                // always an obvious way out of it.
+                composable("settings") {
+                    MineScreen(
+                        vm = vm,
+                        showBack = true,
+                        onBack = { nav.popBackStack() },
+                    )
                 }
 
                 // Settings opened from a gear/menu entry lands here: a pushed

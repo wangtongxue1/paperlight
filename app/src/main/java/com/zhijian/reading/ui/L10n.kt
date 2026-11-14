@@ -72,6 +72,12 @@ interface AppStrings {
     val nothingInProgress: String
     val nothingInProgressBody: String
     val progressOf: String
+    /** The 正在阅读 / 已读完 pages pushed from 阅读 and 我的. */
+    val readingPageNote: String
+    val finishedPageNote: String
+    val emptyFinished: String
+    val emptyFinishedBody: String
+    fun readTimes(n: Int): String
 
     // ---- detail ----
     val details: String
@@ -319,6 +325,11 @@ object StringsZh : AppStrings {
     override val nothingInProgress = "还没有在读的书"
     override val nothingInProgressBody = "打开任意一本书开始阅读，进度会记在这里。"
     override val progressOf = "读至 %1\$d%%"
+    override val readingPageNote = "按最近阅读排序，点开接着上次的进度读。"
+    override val finishedPageNote = "点开任意一本即可重读：进度从头开始，读过的次数会保留。"
+    override val emptyFinished = "还没有读完的书"
+    override val emptyFinishedBody = "一本书读到最后一页，就会出现在这里。"
+    override fun readTimes(n: Int) = "读过 $n 次"
 
     override val details = "详细信息"
     override val edit = "编辑"
@@ -556,6 +567,11 @@ object StringsEn : AppStrings {
     override val nothingInProgress = "Nothing in progress"
     override val nothingInProgressBody = "Open any book and the progress is kept here."
     override val progressOf = "%1\$d%% read"
+    override val readingPageNote = "Sorted by what you read last. Tap to pick up where you left off."
+    override val finishedPageNote = "Tap any book to read it again: progress starts over, the number of times stays."
+    override val emptyFinished = "Nothing finished yet"
+    override val emptyFinishedBody = "A book that reaches its last page shows up here."
+    override fun readTimes(n: Int) = if (n == 1) "Read once" else "Read $n times"
 
     override val details = "Details"
     override val edit = "Edit"
