@@ -23,7 +23,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -37,8 +36,7 @@ import java.io.File
 
 /**
  * The library as covers on paper, 微信读书 style: a fixed three-column
- * grid, the title printed under each jacket, and a small progress chip
- * pinned to the cover of every book the reader has started.
+ * grid, the title printed under each jacket.
  */
 @Composable
 fun ShelfGrid(
@@ -49,7 +47,6 @@ fun ShelfGrid(
     onLongPress: (Book) -> Unit,
     selectionMode: Boolean = false,
     selectedIds: Set<Long> = emptySet(),
-    progress: Map<Long, Float> = emptyMap(),
     /** Room left under the last row so the floating dock never covers it. */
     bottomPadding: Dp = 32.dp,
     modifier: Modifier = Modifier,
@@ -73,7 +70,6 @@ fun ShelfGrid(
                     coverW = coverW,
                     coverH = coverH,
                     labelH = labelH,
-                    progress = progress[book.id] ?: 0f,
                     selected = book.id == selectedId,
                     onSelect = { onSelect(book) },
                     onLongPress = { onLongPress(book) },
@@ -93,7 +89,6 @@ private fun CoverSlot(
     coverW: Dp,
     coverH: Dp,
     labelH: Dp,
-    progress: Float,
     selected: Boolean,
     onSelect: () -> Unit,
     onLongPress: () -> Unit,
@@ -121,19 +116,6 @@ private fun CoverSlot(
                         .border(2.dp, pal.accent, CoverShape)
                 } else Modifier,
             )
-            // The progress chip, WeRead style: 已读 percent in the corner.
-            if (progress > 0.005f && !selectionMode) {
-                Text(
-                    text = "${(progress * 100).toInt()}%",
-                    style = Type.numeric.copy(fontSize = 10.sp, lineHeight = 12.sp),
-                    color = Color.White,
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(6.dp)
-                        .background(Color(0x8C000000), RoundedCornerShape(4.dp))
-                        .padding(horizontal = 5.dp, vertical = 1.dp),
-                )
-            }
             if (selectionMode) {
                 // The round pick badge, the way Apple Books marks covers.
                 Box(

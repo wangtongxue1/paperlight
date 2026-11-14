@@ -101,27 +101,22 @@ fun LibraryScreen(
 
     val allShownSelected = shown.isNotEmpty() && selectedIds.containsAll(shown.map { it.id })
 
-    // The sort tabs reorder locally: 默认 follows the library order, 更新 is
-    // newest import first, 进度 puts books in progress on top, 推荐值 ranks by
-    // rating, 书名 uses the Chinese collation, 字数 puts the longest books
-    // first. 分类 opens the group cards instead of reordering.
+    // The sort tabs reorder locally: 默认 follows the library order, 进度
+    // puts books in progress on top, 书名 uses the Chinese collation, 字数
+    // puts the longest books first. 分类 opens the group cards instead of
+    // reordering.
     var sortTab by remember { mutableIntStateOf(0) }
     // The 分类 tab opens a second level: first the group cards, then the
     // books of the tapped group.
     var category by remember(sortTab) { mutableStateOf<String?>(null) }
     val sorted = remember(shown, sortTab, vm.progress) {
         when (sortTab) {
-            1 -> shown.sortedByDescending { it.timestamp }
-            2 -> shown.sortedByDescending { vm.progress[it.id] ?: 0f }
-            3 -> shown.sortedWith(
-                compareByDescending<Book> { it.rating }
-                    .thenBy(Collator.getInstance(Locale.CHINA)) { it.title },
-            )
-            4 -> {
+            1 -> shown.sortedByDescending { vm.progress[it.id] ?: 0f }
+            2 -> {
                 val collator = Collator.getInstance(Locale.CHINA)
                 shown.sortedWith(compareBy(collator) { it.title })
             }
-            6 -> shown.sortedByDescending { it.size }
+            4 -> shown.sortedByDescending { it.size }
             else -> shown
         }
     }
@@ -268,7 +263,7 @@ fun LibraryScreen(
 
             // Sort tabs, the 微信读书 way: one size for every word, the
             // active one in the accent, evenly spaced on a scrollable line:
-            // 默认 / 更新 / 进度 / 推荐值 / 书名 / 分类 / 字数.
+            // 默认 / 进度 / 书名 / 分类 / 字数.
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -279,9 +274,7 @@ fun LibraryScreen(
             ) {
                 val tabs = listOf(
                     strings.shelfSortDefault,
-                    strings.shelfSortUpdated,
                     strings.shelfSortProgress,
-                    strings.shelfSortRating,
                     strings.shelfSortTitle,
                     strings.shelfSortCategory,
                     strings.shelfSortWords,
@@ -345,11 +338,11 @@ fun LibraryScreen(
                 body = strings.emptyNoMatchBody(vm.query.text),
             )
 
-            sortTab == 5 && category == null -> {
-                // 分类: the group cards, 微信读书 style — one tile per
-                // category, the book count under the name, biggest first.
+            sortTab == 3 && category == null -> {
+                // 分类: the group cards, one per category, the book count
+                // under the name, biggest first.
                 val groups = remember(shown, strings) {
-                    shown.groupBy { it.tags.firstOrNull() ?: "" }
+                    shown.groupBy { categoryKey(it) ?: "" }
                         .map { it.toPair() }
                         .sortedWith(
                             compareByDescending<Pair<String, List<Book>>> { it.second.size }
@@ -372,12 +365,10 @@ fun LibraryScreen(
                 }
             }
 
-            sortTab == 5 -> {
+            sortTab == 3 -> {
                 // The books of one category, with a way back to the cards.
                 val booksIn = remember(shown, category) {
-                    shown.filter {
-                        (it.tags.firstOrNull() ?: "") == category
-                    }
+                    shown.filter { (categoryKey(it) ?: "") == category }
                 }
                 Column(Modifier.fillMaxSize()) {
                     Row(
@@ -412,8 +403,7 @@ fun LibraryScreen(
                     ShelfGrid(
                         books = booksIn,
                         root = vm.library.root,
-                        progress = vm.progress,
-                        selectedId = lastOpened,
+                                selectedId = lastOpened,
                         onSelect = { book ->
                             if (selecting) toggle(book.id) else onOpenBook(book)
                         },
@@ -429,7 +419,6 @@ fun LibraryScreen(
             else -> ShelfGrid(
                 books = sorted,
                 root = vm.library.root,
-                progress = vm.progress,
                 selectedId = lastOpened,
                 onSelect = { book ->
                     if (selecting) toggle(book.id) else onOpenBook(book)
@@ -590,14 +579,46 @@ private fun ImportChoice(
     }
 }
 
+/**
+ * Which category a book belongs to — the first thing that identifies it:
+ * its own tag (what future imports with real metadata will carry), else
+ * the series parsed out of the title, else its author. None of those,
+ * and the book goes to 未分类. This is as close as a local library gets
+ * to the platform-tagged categories 微信读书 groups its shelf by.
+ */
+private fun categoryKey(book: Book): String? =
+    book.tags.firstOrNull { it.isNotBlank() }
+        ?: seriesFromTitle(book.title)
+        ?: book.authors.firstOrNull()
+            ?.takeIf { it.isNotBlank() && !it.equals("Unknown", true) }
+            ?.let { authorLabel(it) }
+
+/** 「伽利略系列1：神探伽利略」 → 「伽利略系列」, the split collections' naming. */
+private fun seriesFromTitle(title: String): String? =
+    Regex("^(.+?(?:系列|三部曲))\\d+[：:].+$").find(title)?.groupValues?.get(1)
+
+/**
+ * A display name for the author tile: 「作者：[日]东野圭吾」 becomes
+ * 「东野圭吾」, a long translator-string becomes its first name.
+ */
+private fun authorLabel(raw: String): String {
+    var s = raw.trim().removePrefix("作者：").removePrefix("作者:")
+    while (true) {
+        val stripped = Regex("^[\\[（(][^\\]）)]{1,4}[\\]）)]").replace(s, "").trim()
+        if (stripped == s || stripped.isEmpty()) break
+        s = stripped
+    }
+    s = s.substringBefore("，").substringBefore(",").trim()
+    return s.ifEmpty { raw.trim() }
+}
+
 /** One category tile in the 分类 view: the name, how many books live there. */
 @Composable
 private fun CategoryCard(
     name: String,
     count: Int,
     onClick: () -> Unit,
-) {
-    val pal = palette
+) {    val pal = palette
     Column(
         Modifier
             .fillMaxWidth()
