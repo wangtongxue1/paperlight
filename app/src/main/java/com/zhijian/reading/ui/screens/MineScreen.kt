@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.zhijian.reading.BuildConfig
 import com.zhijian.reading.data.humanSize
 import com.zhijian.reading.ui.LibraryViewModel
 import com.zhijian.reading.ui.components.Hairline
@@ -36,9 +37,10 @@ import com.zhijian.reading.ui.theme.Type
 import com.zhijian.reading.ui.theme.palette
 
 /**
- * Me: everything that is about this copy of the app — how the shelf looks,
- * where the books live and the stats. Books come in from the shelf's
- * 导入 chooser, so there is no import entry here any more.
+ * Me: who this library is — the numbers, the look, and where the books
+ * live. Groups read as cards on the paper, one quiet block each: stats,
+ * appearance, shelf, library, about. Books come in from the shelf's
+ * 导入 chooser, so there is no import entry here.
  */
 @Composable
 fun MineScreen(
@@ -48,6 +50,7 @@ fun MineScreen(
 ) {
     val pal = palette
     val strings = strings
+    val finished = vm.progress.values.count { it >= 0.99f }
 
     Column(
         Modifier
@@ -89,20 +92,15 @@ fun MineScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
         ) {
+            // ---- the library in three numbers ----
             StatsCard(
                 books = vm.books.size,
                 reading = vm.readingIds.size,
-                size = humanSize(vm.books.sumOf { it.size }),
+                finished = finished,
             )
 
             // ---- appearance ----
-            Spacer(Modifier.height(18.dp))
-            Hairline(Modifier.padding(horizontal = 20.dp))
-            Spacer(Modifier.height(18.dp))
-            Column(Modifier.padding(horizontal = 20.dp)) {
-                Overline(strings.appearance)
-                Spacer(Modifier.height(10.dp))
-
+            GroupCard(strings.appearance) {
                 SettingRow(strings.theme) {
                     SegmentRow(
                         selected = vm.themeMode,
@@ -110,6 +108,7 @@ fun MineScreen(
                         onSelect = { vm.setTheme(it) },
                     )
                 }
+                Hairline()
                 SettingRow(strings.languageSetting) {
                     val current = when (vm.langPref) {
                         "zh" -> 1
@@ -122,6 +121,10 @@ fun MineScreen(
                         onSelect = { vm.setLang(listOf("system", "zh", "en")[it]) },
                     )
                 }
+            }
+
+            // ---- shelf ----
+            GroupCard(strings.shelfTitle) {
                 SettingRow(strings.defaultView) {
                     SegmentRow(
                         selected = vm.viewMode,
@@ -129,7 +132,14 @@ fun MineScreen(
                         onSelect = { vm.chooseViewMode(it) },
                     )
                 }
-                SettingRow(strings.listStars) {
+                Hairline()
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(strings.listStars, style = Type.body, color = pal.text, modifier = Modifier.weight(1f))
                     Switch(
                         checked = vm.showRatings,
                         onCheckedChange = { vm.chooseShowRatings(it) },
@@ -144,25 +154,22 @@ fun MineScreen(
             }
 
             // ---- library ----
-            Spacer(Modifier.height(18.dp))
-            Hairline(Modifier.padding(horizontal = 20.dp))
-            Spacer(Modifier.height(18.dp))
-            Column(Modifier.padding(horizontal = 20.dp)) {
-                Overline(strings.librarySection)
-                Spacer(Modifier.height(10.dp))
+            GroupCard(strings.librarySection) {
+                InfoLine(strings.onDisk, humanSize(vm.books.sumOf { it.size }))
+                Hairline()
                 InfoLine(strings.folder, vm.library.root.absolutePath, mono = true)
             }
 
             // ---- about ----
-            Spacer(Modifier.height(18.dp))
-            Hairline(Modifier.padding(horizontal = 20.dp))
-            Spacer(Modifier.height(18.dp))
-            Column(Modifier.padding(horizontal = 20.dp)) {
-                Overline(strings.about)
-                Spacer(Modifier.height(10.dp))
-                InfoLine(strings.appName, strings.version + " 1.5.5")
+            GroupCard(strings.about) {
+                InfoLine(strings.appName, strings.version + " " + BuildConfig.VERSION_NAME)
                 Spacer(Modifier.height(8.dp))
-                Text(strings.aboutBody, style = Type.small, color = pal.textSecondary)
+                Text(
+                    strings.aboutBody,
+                    style = Type.small,
+                    color = pal.textSecondary,
+                    modifier = Modifier.padding(bottom = 4.dp),
+                )
             }
 
             Spacer(Modifier.height(120.dp))
@@ -170,23 +177,45 @@ fun MineScreen(
     }
 }
 
+/** One white card holding a titled group, the iOS grouped-list look. */
 @Composable
-private fun StatsCard(books: Int, reading: Int, size: String) {
+private fun GroupCard(
+    title: String,
+    content: @Composable () -> Unit,
+) {
+    val pal = palette
+    Column(Modifier.padding(horizontal = 20.dp)) {
+        Spacer(Modifier.height(14.dp))
+        Overline(title)
+        Spacer(Modifier.height(8.dp))
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .background(pal.surface, RoundedCornerShape(Radius.lg.dp))
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+        ) {
+            content()
+        }
+    }
+}
+
+@Composable
+private fun StatsCard(books: Int, reading: Int, finished: Int) {
     val pal = palette
     val strings = strings
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 4.dp)
+            .padding(horizontal = 20.dp, vertical = 6.dp)
             .background(pal.surface, RoundedCornerShape(Radius.lg.dp))
-            .padding(vertical = 18.dp),
+            .padding(vertical = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         StatCell(strings.bookCountLabel, "$books", Modifier.weight(1f))
         StatDivider()
         StatCell(strings.statReading, "$reading", Modifier.weight(1f))
         StatDivider()
-        StatCell(strings.onDisk, size, Modifier.weight(1.2f))
+        StatCell(strings.finished, "$finished", Modifier.weight(1f))
     }
 }
 
@@ -194,8 +223,12 @@ private fun StatsCard(books: Int, reading: Int, size: String) {
 private fun StatCell(label: String, value: String, modifier: Modifier = Modifier) {
     val pal = palette
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, style = Type.display.copy(fontSize = 22.sp, lineHeight = 26.sp), color = pal.text)
-        Spacer(Modifier.height(3.dp))
+        Text(
+            value,
+            style = Type.display.copy(fontSize = 24.sp, lineHeight = 28.sp),
+            color = pal.text,
+        )
+        Spacer(Modifier.height(4.dp))
         Text(label, style = Type.small, color = pal.textTertiary)
     }
 }
@@ -206,7 +239,7 @@ private fun StatDivider() {
     Box(
         Modifier
             .width(1.dp)
-            .height(34.dp)
+            .height(36.dp)
             .background(pal.borderSubtle),
     )
 }
@@ -214,8 +247,8 @@ private fun StatDivider() {
 @Composable
 private fun SettingRow(label: String, content: @Composable () -> Unit) {
     val pal = palette
-    Column(Modifier.padding(vertical = 8.dp)) {
-        Text(label, style = Type.label, color = pal.text, modifier = Modifier.padding(bottom = 8.dp))
+    Column(Modifier.padding(vertical = 10.dp)) {
+        Text(label, style = Type.label, color = pal.textTertiary, modifier = Modifier.padding(bottom = 8.dp))
         content()
     }
 }
@@ -226,12 +259,13 @@ private fun InfoLine(label: String, value: String, mono: Boolean = false) {
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, style = Type.label, color = pal.textTertiary, modifier = Modifier.width(84.dp))
+        Text(label, style = Type.body, color = pal.textSecondary, modifier = Modifier.width(84.dp))
         Text(
             value,
-            style = if (mono) Type.numeric.copy(fontSize = 12.sp, lineHeight = 17.sp) else Type.label,
+            style = if (mono) Type.numeric.copy(fontSize = 12.sp, lineHeight = 17.sp) else Type.body,
             color = pal.text,
             modifier = Modifier.weight(1f),
         )

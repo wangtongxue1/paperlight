@@ -239,6 +239,75 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
         return ImportResult(added, failures)
     }
 
+    // The shelf shows how a running import is doing — 导入 progress, the
+    // 微信读书 way. The work lives in the ViewModel's own scope, so the
+    // import screen can hand off and pop back while files keep copying.
+    var importTotal by mutableStateOf(0)
+        private set
+    var importDone by mutableStateOf(0)
+        private set
+
+    /**
+     * Imports the picked files in the background and reports progress
+     * through [importTotal]/[importDone]. The toast lands when the last
+     * file is filed, wherever the user happens to be looking then.
+     */
+    fun startImport(resolver: ContentResolver, uris: List<Uri>) {
+        if (uris.isEmpty() || importTotal > 0) return
+        importTotal = uris.size
+        importDone = 0
+        busy = true
+        viewModelScope.launch {
+            var added = 0
+            val failures = mutableListOf<String>()
+            withContext(Dispatchers.IO) {
+                uris.forEach { uri ->
+                    val name = displayName(resolver, uri) ?: "Untitled"
+                    runCatching {
+                        val temp = File(getApplication<Application>().cacheDir, "import-$name")
+                        resolver.openInputStream(uri)?.use { input ->
+                            temp.outputStream().use { input.copyTo(it) }
+                        } ?: throw IllegalStateException("cannot open")
+                        if (importFile(temp, name)) added++ else failures += name
+                    }.onFailure { failures += name }
+                    importDone++
+                }
+            }
+            reload()
+            busy = false
+            importTotal = 0
+            importDone = 0
+            notifyImport(added)
+        }
+    }
+
+    /** Same hand-off for the online link import: progress + toast off-screen. */
+    fun startUrlImport(url: String, onDone: (Boolean) -> Unit) {
+        if (importTotal > 0) return
+        importTotal = 1
+        importDone = 0
+        busy = true
+        viewModelScope.launch {
+            val ok = importFromUrl(url).isSuccess
+            importTotal = 0
+            importDone = 0
+            notifyImport(if (ok) 1 else 0)
+            withContext(Dispatchers.Main) { onDone(ok) }
+        }
+    }
+
+    private suspend fun notifyImport(added: Int) {
+        val zh = langPref != "en"
+        val text = when {
+            added > 0 -> if (zh) "已导入 $added 本" else
+                if (added == 1) "1 book added" else "$added books added"
+            else -> if (zh) "没有导入任何文件" else "Nothing was added"
+        }
+        withContext(Dispatchers.Main) {
+            android.widget.Toast.makeText(getApplication(), text, android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
     /**
      * Files one file into the library: reads what it says about itself,
      * makes the book, copies the file into its folder. Returns false when

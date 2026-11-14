@@ -16,7 +16,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,7 +36,6 @@ import com.zhijian.reading.ui.strings
 import com.zhijian.reading.ui.theme.Radius
 import com.zhijian.reading.ui.theme.Type
 import com.zhijian.reading.ui.theme.palette
-import kotlinx.coroutines.launch
 
 /**
  * Online import: one page, one field. Paste a direct file link (EPUB, PDF,
@@ -51,20 +49,15 @@ fun OnlineImportScreen(
 ) {
     val pal = palette
     val strings = strings
-    val scope = rememberCoroutineScope()
     var url by remember { mutableStateOf("") }
-    var busy by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf<String?>(null) }
 
-    suspend fun doImport() {
+    fun doImport() {
         if (url.isBlank()) return
-        busy = true
-        note = vm.importFromUrl(url).fold(
-            onSuccess = { strings.imported(1) },
-            onFailure = { strings.urlFailed },
-        )
-        busy = false
-        if (note == strings.imported(1)) url = ""
+        // Hand off to the ViewModel and go home; the download keeps running
+        // there and the shelf shows the progress (the 微信读书 way).
+        vm.startUrlImport(url) { ok -> note = if (ok) null else strings.urlFailed }
+        onBack()
     }
 
     Column(
@@ -128,7 +121,7 @@ fun OnlineImportScreen(
                         textStyle = Type.small.copy(color = pal.text, fontSize = 13.sp),
                         cursorBrush = SolidColor(pal.accent),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                        keyboardActions = KeyboardActions(onGo = { scope.launch { doImport() } }),
+                        keyboardActions = KeyboardActions(onGo = { doImport() }),
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -138,23 +131,15 @@ fun OnlineImportScreen(
                         .height(36.dp)
                         .clip(RoundedCornerShape(Radius.pill.dp))
                         .background(if (url.isBlank()) pal.subtle else pal.accent)
-                        .clickable(enabled = !busy && url.isNotBlank()) { scope.launch { doImport() } }
+                        .clickable(enabled = url.isNotBlank()) { doImport() }
                         .padding(horizontal = 16.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (busy) {
-                        CircularProgressIndicator(
-                            color = pal.textOnAccent,
-                            strokeWidth = 2.dp,
-                            modifier = Modifier.size(14.dp),
-                        )
-                    } else {
-                        Text(
-                            strings.urlImportAction,
-                            style = Type.smallStrong,
-                            color = if (url.isBlank()) pal.textTertiary else pal.textOnAccent,
-                        )
-                    }
+                    Text(
+                        strings.urlImportAction,
+                        style = Type.smallStrong,
+                        color = if (url.isBlank()) pal.textTertiary else pal.textOnAccent,
+                    )
                 }
             }
             // One quiet line under the field: hint at rest, result on outcome.

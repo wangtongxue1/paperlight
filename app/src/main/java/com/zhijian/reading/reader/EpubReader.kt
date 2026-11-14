@@ -45,12 +45,21 @@ object EpubReader {
         val opfDir = opfFile.parentFile ?: dir
 
         val (title, manifest, spine) = parseOpf(opfFile)
-        val body = StringBuilder()
-            spine.forEachIndexed { index, idref ->
-            val item = manifest[idref] ?: return@forEachIndexed
+        // The book's own 目录 page (EPUB 3 nav or a spine item that is only
+        // a chapter listing) belongs in the 目录 panel, not the reading flow:
+        // drop it before numbering, so chapter indices stay contiguous.
+        val kept = spine.mapNotNull { idref ->
+            val item = manifest[idref] ?: return@mapNotNull null
+            if (item.properties.split(Regex("\\s+")).contains("nav")) return@mapNotNull null
             val file = File(opfDir, item.href)
-            if (!file.exists()) return@forEachIndexed
+            if (!file.exists()) return@mapNotNull null
             val raw = file.readText()
+            if (TocStrip.isTocPageHtml(raw)) return@mapNotNull null
+            Triple(idref, item, raw)
+        }
+        val body = StringBuilder()
+        kept.forEachIndexed { index, (_, item, raw) ->
+            val file = File(opfDir, item.href)
             val inner = extractBody(raw)
             body.append(PageTemplate.chapter(index, rewriteImages(inner, file.parentFile ?: opfDir)))
         }
@@ -60,7 +69,7 @@ object EpubReader {
             baseUrl = opfDir.toURI().toString(),
             title = title,
             dir = dir,
-            toc = buildToc(opfDir, title, manifest, spine),
+            toc = buildToc(opfDir, title, manifest, kept.map { it.first }),
         )
     }.getOrNull()
 

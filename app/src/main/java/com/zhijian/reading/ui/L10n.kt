@@ -208,6 +208,7 @@ interface AppStrings {
     val localImportAction: String
     fun imported(n: Int): String
     val importNone: String
+    fun importProgress(done: Int, total: Int): String
     fun importFailed(name: String): String
     val builtinNote: String
     val nothingFound: String
@@ -434,6 +435,7 @@ object StringsZh : AppStrings {
     override val localImportAction = "导入"
     override fun imported(n: Int) = "已导入 $n 本"
     override val importNone = "没有导入任何文件"
+    override fun importProgress(done: Int, total: Int) = "正在导入 ${done + 1}/$total"
     override fun importFailed(name: String) = "无法导入：$name"
     override val builtinNote = "公版中文样书已随应用内置，无需联网"
     override val nothingFound = "没有找到"
@@ -658,6 +660,7 @@ object StringsEn : AppStrings {
     override val localImportAction = "Import"
     override fun imported(n: Int) = if (n == 1) "1 book added" else "$n books added"
     override val importNone = "Nothing was added"
+    override fun importProgress(done: Int, total: Int) = "Importing ${done + 1}/$total"
     override fun importFailed(name: String) = "Could not file: $name"
     override val builtinNote = "Sample Chinese classics ship with the app, no network needed"
     override val nothingFound = "Nothing found"

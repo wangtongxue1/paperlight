@@ -36,10 +36,14 @@ object TxtReader {
         var index = 0
 
         fun flush() {
-            // An empty preamble before the first heading is skipped; later
-            // empty chapters can't happen because a heading always starts
-            // a fresh buffer right after the previous flush.
-            if (index == 0 && buf.isBlank()) return
+            // A heading followed by nothing before the next heading is a
+            // TOC entry, not a chapter: TXT novels list every 章 title up
+            // front, and emitting those ghosts doubles the book with empty
+            // sections. Real chapters always carry body text.
+            if (buf.isBlank()) return
+            // The preamble before the first heading can be the book's own
+            // 目录 listing; that belongs in the panel, not the flow.
+            if (index == 0 && TocStrip.isTocText(buf.toString())) return
             val name = if (currentTitle.isBlank()) title else currentTitle.trim()
             body.append(PageTemplate.chapter(index, "<h2>${PageTemplate.escape(name)}</h2>${PageTemplate.paragraphs(buf.toString())}"))
             toc += TocItem(index, name)

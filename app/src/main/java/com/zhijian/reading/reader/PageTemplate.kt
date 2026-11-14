@@ -51,6 +51,17 @@ object PageTemplate {
                 word-wrap: break-word;
               }
               section.chapter + section.chapter { margin-top: 2.4em; padding-top: 1.8em; border-top: 1px solid var(--rule); }
+              /* Paged mode: every chapter opens on its own page, 微信读书
+                 style — no trailing rule, no leftover of the previous
+                 chapter at the top. The forced break is dropped by the
+                 engine for the first section, so page 1 stays page 1. */
+              html.pl-paged section.chapter { break-before: column; margin-top: 0; padding-top: 0; border-top: 0; }
+              html.pl-paged section.chapter > h1:first-child,
+              html.pl-paged section.chapter > h2:first-child,
+              html.pl-paged section.chapter > h3:first-child { margin-top: .35em; }
+              /* A heading stranded at a page bottom looks broken; keep it
+                 with at least the first lines of its paragraph. */
+              h1, h2, h3, h4 { break-inside: avoid; break-after: avoid-column; }
               h1, h2, h3, h4 { line-height: 1.32; margin: 1.6em 0 .8em; font-weight: 600; }
               h1 { font-size: 1.35em; } h2 { font-size: 1.18em; } h3 { font-size: 1.06em; }
               /* 微信读书 paragraphs are flush-left with paragraph spacing, no indent.

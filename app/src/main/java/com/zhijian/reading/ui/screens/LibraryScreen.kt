@@ -292,6 +292,29 @@ fun LibraryScreen(
             }
         }
 
+        // 导入进度: files picked on the import screens land here while they
+        // are still copying, the 微信读书 way — a quiet line under the tabs.
+        if (vm.importTotal > 0) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                androidx.compose.material3.CircularProgressIndicator(
+                    color = pal.accent,
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(14.dp),
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    strings.importProgress(vm.importDone, vm.importTotal),
+                    style = Type.small,
+                    color = pal.textSecondary,
+                )
+            }
+        }
+
         when {
             vm.books.isEmpty() -> EmptyState(
                 title = strings.emptyNoBooks,

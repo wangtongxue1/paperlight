@@ -57,6 +57,9 @@
       body.appendChild(pager);
       body.style.padding = '0';
       doc.style.overflow = 'hidden';
+      // The stylesheet keeps two chapter looks: scroll mode separates them
+      // with a rule, paged mode gives each chapter a fresh page.
+      doc.classList.add('pl-paged');
       window.scrollTo(0, 0);
     }
     layout();
@@ -69,6 +72,7 @@
     pager = null; flow = null;
     body.style.padding = '';
     doc.style.overflow = '';
+    doc.classList.remove('pl-paged');
     clampScroll();
   }
 

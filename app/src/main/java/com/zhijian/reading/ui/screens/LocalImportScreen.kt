@@ -4,7 +4,6 @@ import android.content.ContentResolver
 import android.content.Intent
 import android.net.Uri
 import android.provider.DocumentsContract
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -133,14 +132,10 @@ fun LocalImportScreen(
         ActivityResultContracts.OpenMultipleDocuments(),
     ) { uris ->
         if (uris.isNullOrEmpty()) return@rememberLauncherForActivityResult
-        scope.launch {
-            val result = vm.import(context.contentResolver, uris)
-            val text = when {
-                result.added > 0 -> strings.imported(result.added)
-                else -> strings.importNone
-            }
-            Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
-        }
+        // Hand the files to the ViewModel and go home: the import keeps
+        // running in the ViewModel's scope and the shelf shows its progress.
+        vm.startImport(context.contentResolver, uris)
+        onBack()
     }
 
     LaunchedEffect(treeUri, path) {
@@ -359,14 +354,8 @@ fun LocalImportScreen(
                                 DocumentsContract.buildDocumentUriUsingTree(treeUri!!, it)
                             }
                             selected = emptySet()
-                            scope.launch {
-                                val result = vm.import(context.contentResolver, uris)
-                                val text = when {
-                                    result.added > 0 -> strings.imported(result.added)
-                                    else -> strings.importNone
-                                }
-                                Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
-                            }
+                            vm.startImport(context.contentResolver, uris)
+                            onBack()
                         }
                         .padding(horizontal = 22.dp),
                     contentAlignment = Alignment.Center,
