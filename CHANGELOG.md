@@ -3,6 +3,13 @@
 纸间阅读 **Paperlight** —— Apple Books 风格的 Android 阅读器（EPUB / PDF / TXT / MOBI / AZW3 / HTML / MD / FB2）。
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.6.7] - 2026-11-14
+
+### Fixed
+
+- 分类页卡片行间距缺失，上下两行贴在一起、圆角互相咬合（视觉上重叠）；补上 12dp 行距并收紧卡片标题行高
+- 分类作者名尾部括注清理：「孙璐 (译者)」→「孙璐」
+
 ## [1.6.6] - 2026-11-14
 
 ### 变更

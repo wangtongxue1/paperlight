@@ -353,6 +353,7 @@ fun LibraryScreen(
                     columns = GridCells.Fixed(2),
                     contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = bottomInset),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     items(groups, key = { it.first }) { (name, booksIn) ->
@@ -608,6 +609,12 @@ private fun authorLabel(raw: String): String {
         if (stripped == s || stripped.isEmpty()) break
         s = stripped
     }
+    // Tail notes too: 「孙璐 (译者)」 → 「孙璐」.
+    while (true) {
+        val stripped = Regex("[\\[（(][^\\[（(]{1,6}[\\]）)]$").replace(s, "").trim()
+        if (stripped == s || stripped.isEmpty()) break
+        s = stripped
+    }
     s = s.substringBefore("，").substringBefore(",").trim()
     return s.ifEmpty { raw.trim() }
 }
@@ -629,7 +636,7 @@ private fun CategoryCard(
     ) {
         Text(
             text = name,
-            style = Type.title.copy(fontSize = 17.sp),
+            style = Type.title.copy(fontSize = 17.sp, lineHeight = 22.sp),
             color = pal.text,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
