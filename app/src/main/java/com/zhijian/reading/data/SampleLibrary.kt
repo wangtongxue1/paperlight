@@ -266,5 +266,5 @@ object SampleLibrary {
         "978" + (1000000000L + i * 7919L).toString().takeLast(10)
 
     private fun trimIndex(f: Double): String =
-        if (f == f.toLong().toDouble()) f.toLong().toString() else String.format("%.1f", f)
+        if (f == f.toLong().toDouble()) f.toLong().toString() else String.format(java.util.Locale.US, "%.1f", f)
 }

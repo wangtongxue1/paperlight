@@ -68,7 +68,8 @@ fun ReadingScreen(
     val finished = remember(vm.books, progress) {
         vm.books.filter { (progress[it.id] ?: 0f) >= 0.98f }
     }
-    var showAllReading by mutableStateOf(false)
+    // 展开更多在读书目：跨重组记住，不然点开又被重置。
+    var showAllReading by remember { mutableStateOf(false) }
     // "Recently added" is capped at nine jackets so the grid stays a tidy
     // block instead of running on forever.
     val recent = remember(vm.books) {

@@ -232,7 +232,7 @@ private fun GroupCard(
 private fun readingTimeLabel(totalSeconds: Long, strings: com.zhijian.reading.ui.AppStrings): String {
     val minutes = totalSeconds / 60
     return if (minutes < 60) strings.minutesShort(minutes)
-    else strings.hoursShort(String.format("%.1f", minutes / 60.0))
+    else strings.hoursShort(String.format(java.util.Locale.US, "%.1f", minutes / 60.0))
 }
 
 @Composable

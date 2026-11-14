@@ -1,6 +1,7 @@
 package com.zhijian.reading.data
 
 import java.io.File
+import java.util.Locale
 
 /** A file of a book on disk: format, its name without extension, its size. */
 data class BookFile(
@@ -44,13 +45,13 @@ data class Book(
 }
 
 fun trimIndex(f: Double): String =
-    if (f == f.toLong().toDouble()) f.toLong().toString() else String.format("%.1f", f)
+    if (f == f.toLong().toDouble()) f.toLong().toString() else String.format(Locale.US, "%.1f", f)
 
 fun humanSize(n: Long): String = when {
     n <= 0 -> "—"
     n < 1 shl 20 -> "${(n + 1023) / 1024} KB"
-    n < 1 shl 30 -> String.format("%.1f MB", n.toDouble() / (1 shl 20))
-    else -> String.format("%.1f GB", n.toDouble() / (1 shl 30))
+    n < 1 shl 30 -> String.format(Locale.US, "%.1f MB", n.toDouble() / (1 shl 20))
+    else -> String.format(Locale.US, "%.1f GB", n.toDouble() / (1 shl 30))
 }
 
 /** How the library is narrowed: a shelf, a format, or one named value. */

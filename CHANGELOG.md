@@ -3,6 +3,12 @@
 纸间阅读 **Paperlight** —— Apple Books 风格的 Android 阅读器（EPUB / PDF / TXT / MOBI / AZW3 / HTML / MD / FB2）。
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.6.4] - 2026-11-14
+
+### 修复
+- 「阅读」页「展开更多在读书目」的状态没有用 `remember` 记住，重组后会被重置（lint 报错项）。
+- 数值格式化显式指定 Locale，避免系统区域设置影响小数点显示（lint）。
+
 ## [1.6.3] - 2026-11-14
 
 ### 变更
