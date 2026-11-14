@@ -3,6 +3,7 @@ package com.zhijian.reading.data
 import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
+import android.os.SystemClock
 import java.io.File
 import java.time.Instant
 import java.time.ZoneOffset
@@ -292,9 +293,34 @@ class Library(context: Context, val root: File) {
         db.writableDatabase.delete("data", "book = ? AND format = ?", arrayOf(bookId.toString(), format.uppercase()))
     }
 
-    fun delete(b: Book) {
+    /**
+     * Takes a book off the shelf. The row always goes; the folder on disk only
+     * goes when [deleteFiles] is set, otherwise the file stays in MyBooks and
+     * a later scan can bring the book back.
+     */
+    fun delete(b: Book, deleteFiles: Boolean = true) {
         db.writableDatabase.delete("books", "id = ?", arrayOf(b.id.toString()))
-        (b.folder(root)).deleteRecursively()
+        if (!deleteFiles) return
+
+        val folder = b.folder(root)
+        folder.deleteRecursively()
+        // FUSE can refuse the rmdir just after the unlinks settle; retry with
+        // a widening beat so no empty book folder is left behind.
+        val waits = longArrayOf(50, 100, 200, 400, 800)
+        for (wait in waits) {
+            if (!folder.exists()) break
+            SystemClock.sleep(wait)
+            folder.deleteRecursively()
+        }
+        // Author folders are scaffolding: tidy them away when the last book leaves.
+        var parent = folder.parentFile
+        while (parent != null && parent.absolutePath != root.absolutePath &&
+            parent.path.startsWith(root.path) && (parent.list()?.isEmpty() == true)
+        ) {
+            val next = parent.parentFile
+            parent.delete()
+            parent = next
+        }
     }
 
     fun setRating(id: Long, rating: Int) {

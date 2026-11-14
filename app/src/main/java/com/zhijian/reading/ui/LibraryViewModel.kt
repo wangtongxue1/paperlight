@@ -202,19 +202,23 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
         reload()
     }
 
-    suspend fun delete(book: Book) {
+    /**
+     * Removes [book] from the shelf. When [deleteFiles] is false the file on
+     * disk is left alone, so it can be found again by a folder scan.
+     */
+    suspend fun delete(book: Book, deleteFiles: Boolean = true) {
         withContext(Dispatchers.IO) {
-            library.delete(book)
+            library.delete(book, deleteFiles)
             settings.clearProgress(book.id)
         }
         reload()
     }
 
     /** Removes several books in one pass, then reloads the shelf once. */
-    suspend fun deleteAll(books: List<Book>) {
+    suspend fun deleteAll(books: List<Book>, deleteFiles: Boolean = true) {
         withContext(Dispatchers.IO) {
             books.forEach { book ->
-                library.delete(book)
+                library.delete(book, deleteFiles)
                 settings.clearProgress(book.id)
             }
         }

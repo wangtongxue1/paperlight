@@ -26,10 +26,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -60,9 +58,11 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.zhijian.reading.data.Book
+import com.zhijian.reading.data.humanSize
 import com.zhijian.reading.ui.LangPref
 import com.zhijian.reading.ui.LibraryViewModel
 import com.zhijian.reading.ui.LocalStrings
+import com.zhijian.reading.ui.components.DeleteConfirmDialog
 import com.zhijian.reading.ui.strings
 import com.zhijian.reading.ui.stringsFor
 import com.zhijian.reading.ui.screens.BrowseKind
@@ -473,26 +473,16 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
 
         // The confirmations, drawn over whatever page asked for them.
         pendingDelete?.let { book ->
-            AlertDialog(
-                onDismissRequest = { pendingDelete = null },
-                containerColor = pal.surfaceRaised,
-                titleContentColor = pal.text,
-                textContentColor = pal.textSecondary,
-                title = { Text(strings.removeTitle(book.title)) },
-                text = { Text(strings.removeBody) },
-                confirmButton = {
-                    TextButton(onClick = {
-                        pendingDelete = null
-                        scope.launch {
-                            vm.delete(book)
-                            if (lastOpened == book.id) lastOpened = null
-                            nav.popBackStack()
-                        }
-                    }) { Text(strings.remove, color = pal.danger) }
-                },
-                dismissButton = {
-                    TextButton(onClick = { pendingDelete = null }) {
-                        Text(strings.cancel, color = pal.textSecondary)
+            DeleteConfirmDialog(
+                title = strings.removeTitle(book.title),
+                sizeNote = book.size.takeIf { it > 0 }?.let { humanSize(it) },
+                onDismiss = { pendingDelete = null },
+                onConfirm = { deleteFiles ->
+                    pendingDelete = null
+                    scope.launch {
+                        vm.delete(book, deleteFiles)
+                        if (lastOpened == book.id) lastOpened = null
+                        nav.popBackStack()
                     }
                 },
             )

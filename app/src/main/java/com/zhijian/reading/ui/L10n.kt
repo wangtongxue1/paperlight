@@ -79,7 +79,13 @@ interface AppStrings {
     val changeCover: String
     val remove: String
     fun removeTitle(title: String): String
-    val removeBody: String
+    /** Shown while the tick is off: the file stays on disk. */
+    val deleteKeepNote: String
+    /** Shown once the tick is on: both are erased for good. */
+    val deleteFilesWarn: String
+    val deleteFilesOption: String
+    fun deleteFilesHint(size: String): String
+    val deleteFilesHintBare: String
     val cancel: String
     // ---- shelf selection ----
     val viewMoreHistory: String
@@ -87,7 +93,6 @@ interface AppStrings {
     val selectAll: String
     val deselectAll: String
     fun deleteBooksTitle(n: Int): String
-    val deleteBooksBody: String
     val deleteAction: String
     val accept: String
     val read: String
@@ -319,14 +324,17 @@ object StringsZh : AppStrings {
     override val changeCover = "更换封面"
     override val remove = "移出书库"
     override fun removeTitle(title: String) = "移除《$title》？"
-    override val removeBody = "书籍记录与文件会一并删除，此操作无法撤销。"
+    override val deleteKeepNote = "只从书架移除，本地文件仍保留在 MyBooks，之后还能重新扫描导入。"
+    override val deleteFilesWarn = "书架记录与本地文件会一并删除，此操作无法撤销。"
+    override val deleteFilesOption = "同时删除本地文件"
+    override fun deleteFilesHint(size: String) = "MyBooks 中 $size，勾选后从手机彻底删除"
+    override val deleteFilesHintBare = "勾选后从手机存储中彻底删除，无法恢复"
     override val cancel = "取消"
     override val viewMoreHistory = "查看更多"
     override fun selectedCount(n: Int) = "已选 $n 项"
     override val selectAll = "全选"
     override val deselectAll = "取消全选"
     override fun deleteBooksTitle(n: Int) = "删除 $n 本书？"
-    override val deleteBooksBody = "所选书籍的记录与文件会一并删除，此操作无法撤销。"
     override val deleteAction = "删除"
     override val accept = "确定"
     override val read = "开始阅读"
@@ -552,14 +560,18 @@ object StringsEn : AppStrings {
     override val changeCover = "Change cover"
     override val remove = "Remove from library"
     override fun removeTitle(title: String) = "Remove “$title”?"
-    override val removeBody = "The book and its files are deleted. This cannot be undone."
+    override val deleteKeepNote =
+        "Only the shelf entry goes. The file stays in MyBooks and can be scanned back in."
+    override val deleteFilesWarn = "The shelf entry and the local file are both deleted. This cannot be undone."
+    override val deleteFilesOption = "Also delete the local file"
+    override fun deleteFilesHint(size: String) = "$size in MyBooks — ticked, it is erased from the phone"
+    override val deleteFilesHintBare = "Ticked, the file is erased from the phone for good"
     override val cancel = "Cancel"
     override val viewMoreHistory = "Show more"
     override fun selectedCount(n: Int) = if (n == 1) "1 selected" else "$n selected"
     override val selectAll = "Select All"
     override val deselectAll = "Deselect All"
     override fun deleteBooksTitle(n: Int) = if (n == 1) "Delete 1 book?" else "Delete $n books?"
-    override val deleteBooksBody = "The selected books and their files are deleted. This cannot be undone."
     override val deleteAction = "Delete"
     override val accept = "Accept"
     override val read = "Read"

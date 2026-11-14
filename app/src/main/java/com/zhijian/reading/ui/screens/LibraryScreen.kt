@@ -24,7 +24,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -42,7 +41,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.zhijian.reading.data.Book
 import com.zhijian.reading.data.Filter
+import com.zhijian.reading.data.humanSize
 import com.zhijian.reading.ui.LibraryViewModel
+import com.zhijian.reading.ui.components.DeleteConfirmDialog
 import com.zhijian.reading.ui.components.EmptyState
 import com.zhijian.reading.ui.components.ShelfGrid
 import com.zhijian.reading.ui.strings
@@ -473,26 +474,15 @@ fun LibraryScreen(
 
     if (confirmDelete) {
         val toDelete = vm.books.filter { it.id in selectedIds }
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            containerColor = pal.surfaceRaised,
-            titleContentColor = pal.text,
-            textContentColor = pal.textSecondary,
-            title = { Text(strings.deleteBooksTitle(toDelete.size)) },
-            text = { Text(strings.deleteBooksBody) },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmDelete = false
-                    val doomed = toDelete
-                    selecting = false
-                    selectedIds = emptySet()
-                    scope.launch { vm.deleteAll(doomed) }
-                }) { Text(strings.remove, color = pal.danger) }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmDelete = false }) {
-                    Text(strings.cancel, color = pal.textSecondary)
-                }
+        DeleteConfirmDialog(
+            title = strings.deleteBooksTitle(toDelete.size),
+            sizeNote = toDelete.sumOf { it.size }.takeIf { it > 0 }?.let { humanSize(it) },
+            onDismiss = { confirmDelete = false },
+            onConfirm = { deleteFiles ->
+                confirmDelete = false
+                selecting = false
+                selectedIds = emptySet()
+                scope.launch { vm.deleteAll(toDelete, deleteFiles) }
             },
         )
     }
