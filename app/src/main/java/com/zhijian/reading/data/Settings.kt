@@ -40,14 +40,6 @@ class Settings(context: Context) {
         get() = p.getString("importTree", null)
         set(v) = p.edit().putString("importTree", v).apply()
 
-    /**
-     * Absolute path of the library folder the reader chose (the `MyBooks`
-     * folder on shared storage), or null for the app's private folder.
-     */
-    var libraryPath: String?
-        get() = p.getString("libraryPath", null)
-        set(v) = p.edit().putString("libraryPath", v).apply()
-
     /** Reader page mode: "scroll" (default) or "paged". */
     var readerMode: String
         get() = p.getString("readerMode", "scroll") ?: "scroll"

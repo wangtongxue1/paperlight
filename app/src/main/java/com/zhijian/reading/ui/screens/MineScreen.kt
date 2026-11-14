@@ -68,8 +68,10 @@ fun MineScreen(
     val scope = rememberCoroutineScope()
     var scanning by remember { mutableStateOf(false) }
 
-    // The switch only takes effect once the system grants 所有文件访问, so
-    // the move happens when that page comes back — not when it is opened.
+    // The move only takes effect once the system grants 所有文件访问, so it
+    // happens when that page comes back — not when it is opened. Books live
+    // in MyBooks by default; the only reason to land here is the first run
+    // before that one-time grant.
     val allFilesLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { vm.onStoragePermissionResult() }
@@ -77,11 +79,7 @@ fun MineScreen(
         ActivityResultContracts.RequestPermission(),
     ) { vm.onStoragePermissionResult() }
 
-    fun switchStorage() {
-        if (vm.usingPublicStorage) {
-            vm.usePrivateStorage()
-            return
-        }
+    fun requestStorage() {
         if (vm.requestPublicStorage()) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             val intent = Intent(SysSettings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
@@ -182,17 +180,17 @@ fun MineScreen(
                 InfoLine(strings.onDisk, humanSize(vm.books.sumOf { it.size }))
                 Hairline()
                 InfoLine(strings.folder, vm.libraryPath, mono = true)
-                Hairline()
-                ActionLine(
-                    title = when {
-                        vm.storageBusy -> strings.storageMoving
-                        vm.usingPublicStorage -> strings.storageToPrivate
-                        else -> strings.storageToPublic
-                    },
-                    note = if (vm.usingPublicStorage) null else strings.storageNote,
-                    enabled = !vm.storageBusy,
-                    onClick = { switchStorage() },
-                )
+                if (!vm.usingPublicStorage) {
+                    // Only on the first run, before 所有文件访问 is granted:
+                    // the books wait in the app folder until then.
+                    Hairline()
+                    ActionLine(
+                        title = if (vm.storageBusy) strings.storageMoving else strings.storageToPublic,
+                        note = strings.storageNote,
+                        enabled = !vm.storageBusy,
+                        onClick = { requestStorage() },
+                    )
+                }
                 if (vm.usingPublicStorage) {
                     Hairline()
                     ActionLine(

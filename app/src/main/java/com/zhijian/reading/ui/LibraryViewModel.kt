@@ -34,11 +34,11 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
     private val settings = Settings(app)
 
     /**
-     * The library folder in use. It is a `var` because the reader can move
-     * it — out to `MyBooks` on shared storage, or back to the app's own
-     * folder — and the shelf has to follow without a restart.
+     * The library folder in use. It is a `var` because the first run after
+     * the storage grant moves it out to `MyBooks` on shared storage, and the
+     * shelf has to follow without a restart.
      */
-    var library by mutableStateOf(Library(app, BookStorage.current(app, settings)))
+    var library by mutableStateOf(Library(app, BookStorage.current(app)))
         private set
 
     /** Absolute path of [library]'s root, as the 我的 page shows it. */
@@ -100,6 +100,12 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
     init {
         viewModelScope.launch {
             withContext(Dispatchers.IO) { SampleLibrary.seedIfEmpty(library) }
+            // MyBooks is home. When the storage grant happens outside the
+            // app, the library is brought over on the next start instead of
+            // waiting for another tap in 我的.
+            if (canUsePublicStorage() && !usingPublicStorage) {
+                migrateTo(BookStorage.publicRoot())
+            }
             reload()
             ready = true
         }
@@ -249,9 +255,9 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
     fun canUsePublicStorage(): Boolean = BookStorage.hasPublicAccess(getApplication())
 
     /**
-     * Switches the library to `MyBooks` in shared storage. Returns false
-     * when the system permission is still missing — the caller then opens
-     * the 所有文件访问 page and [onStoragePermissionResult] finishes the job.
+     * Moves the library to its home in `MyBooks`. Returns false when the
+     * system permission is still missing — the caller then opens the
+     * 所有文件访问 page and [onStoragePermissionResult] finishes the job.
      */
     fun requestPublicStorage(): Boolean {
         storageError = null
@@ -260,45 +266,32 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
             return false
         }
         awaitingStoragePermission = false
-        moveLibraryTo(BookStorage.publicRoot())
+        viewModelScope.launch { migrateTo(BookStorage.publicRoot()) }
         return true
     }
 
-    /** Back from the system permission page: finish the switch if granted. */
+    /** Back from the system permission page: finish the move if granted. */
     fun onStoragePermissionResult() {
         if (!awaitingStoragePermission) return
         if (!canUsePublicStorage()) return
         awaitingStoragePermission = false
-        moveLibraryTo(BookStorage.publicRoot())
+        viewModelScope.launch { migrateTo(BookStorage.publicRoot()) }
     }
 
-    fun usePrivateStorage() {
-        val app = getApplication<Application>()
-        if (library.root.absolutePath == BookStorage.privateRoot(app).absolutePath) return
-        moveLibraryTo(BookStorage.privateRoot(app))
-    }
-
-    private fun moveLibraryTo(target: File) {
+    private suspend fun migrateTo(target: File) {
         if (storageBusy) return
         val app = getApplication<Application>()
-        viewModelScope.launch {
-            storageBusy = true
-            val moved = withContext(Dispatchers.IO) { BookStorage.moveTo(app, settings, target) }
-            if (moved == null) {
-                storageError = target.absolutePath
-            } else {
-                // The private folder is the default, so it is stored as
-                // "no choice" rather than as a path.
-                if (moved.absolutePath == BookStorage.privateRoot(app).absolutePath) {
-                    BookStorage.reset(settings)
-                }
-                withContext(Dispatchers.IO) { library.close() }
-                library = Library(app, moved)
-                libraryPath = moved.absolutePath
-                reload()
-            }
-            storageBusy = false
+        storageBusy = true
+        val moved = withContext(Dispatchers.IO) { BookStorage.moveTo(app, target) }
+        if (moved == null) {
+            storageError = target.absolutePath
+        } else {
+            withContext(Dispatchers.IO) { library.close() }
+            library = Library(app, moved)
+            libraryPath = moved.absolutePath
+            reload()
         }
+        storageBusy = false
     }
 
     /**

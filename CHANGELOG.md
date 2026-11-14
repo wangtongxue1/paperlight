@@ -3,6 +3,13 @@
 纸间阅读 **Paperlight** —— Apple Books 风格的 Android 阅读器（EPUB / PDF / TXT / MOBI / AZW3 / HTML / MD / FB2）。
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.5.9] - 2026-11-14
+
+### 变更
+- 书库存放位置默认改为手机根目录 `MyBooks`（`/storage/emulated/0/MyBooks`）：首次授权「所有文件访问」后应用启动即自动把书库迁移过去，无需手动操作；授权前书籍暂存应用私有目录，授权后自动接管。
+- 移除「改回应用私有目录」入口：`MyBooks` 是唯一目标位置，「我的-书库」不再提供切回私有目录的动作（未授权时仅显示一次性的授权引导行）。
+- 迁移拷贝时 `metadata.db` 最后写入，中断的拷贝不会留下一个"看似完整"的空书库。
+
 ## [1.5.8] - 2026-11-14
 
 ### 新增
