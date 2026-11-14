@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.zhijian.reading.BuildConfig
@@ -60,6 +61,8 @@ fun MineScreen(
     vm: LibraryViewModel,
     showBack: Boolean = false,
     onBack: () -> Unit = {},
+    /** Space kept free at the bottom for the floating dock. */
+    bottomInset: Dp = 0.dp,
 ) {
     val pal = palette
     val strings = strings
@@ -130,7 +133,8 @@ fun MineScreen(
         Column(
             Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = bottomInset),
         ) {
             // ---- the library in three numbers, plus the time spent ----
             StatsCard(

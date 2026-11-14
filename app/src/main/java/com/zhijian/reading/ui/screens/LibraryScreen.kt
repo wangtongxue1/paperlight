@@ -37,6 +37,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.zhijian.reading.data.Book
@@ -69,6 +70,8 @@ fun LibraryScreen(
     onOpenSettings: () -> Unit,
     onImport: () -> Unit,
     onImportOnline: () -> Unit,
+    /** Space kept free at the bottom for the floating dock. */
+    bottomInset: Dp = 32.dp,
 ) {
     val pal = palette
     val strings = strings
@@ -347,7 +350,7 @@ fun LibraryScreen(
                 }
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                    contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = bottomInset),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize(),
                 ) {
@@ -409,6 +412,7 @@ fun LibraryScreen(
                         onLongPress = { book -> enterSelection(book) },
                         selectionMode = selecting,
                         selectedIds = selectedIds,
+                        bottomPadding = bottomInset,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -425,6 +429,7 @@ fun LibraryScreen(
                 onLongPress = { book -> enterSelection(book) },
                 selectionMode = selecting,
                 selectedIds = selectedIds,
+                bottomPadding = bottomInset,
                 modifier = Modifier.fillMaxSize(),
             )
         }

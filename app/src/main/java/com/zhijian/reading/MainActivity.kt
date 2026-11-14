@@ -150,6 +150,9 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
 
     val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    // Height the floating dock eats at the bottom of a tab page: its 60dp
+    // capsule lifted 12dp off the navigation bar, plus some air.
+    val dockSpace = navBottom + 84.dp
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
 
@@ -234,6 +237,7 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
                         onOpenSettings = { nav.navigate("settings") },
                         onImport = { nav.navigate("localimport") },
                         onImportOnline = { nav.navigate("urlimport") },
+                        bottomInset = dockSpace,
                     )
                 }
 
@@ -401,7 +405,7 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
                 }
 
                 composable("mine") {
-                    MineScreen(vm = vm)
+                    MineScreen(vm = vm, bottomInset = dockSpace)
                 }
 
                 // Settings opened from a gear/menu entry lands here: a pushed

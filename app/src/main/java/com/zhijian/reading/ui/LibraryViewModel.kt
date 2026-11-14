@@ -12,9 +12,11 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.zhijian.reading.data.Book
 import com.zhijian.reading.data.BookFile
+import com.zhijian.reading.data.BookSniff
 import com.zhijian.reading.data.BookStorage
 import com.zhijian.reading.data.Counts
 import com.zhijian.reading.data.EpubMeta
+import com.zhijian.reading.data.EpubSplit
 import com.zhijian.reading.data.Filter
 import com.zhijian.reading.data.Library
 import com.zhijian.reading.data.Query
@@ -300,24 +302,30 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
      * is read, given its folder, and moved inside it.
      */
     suspend fun scanLibraryFolder(): Int = withContext(Dispatchers.IO) {
+        lastImportFailure = null
         val root = library.root
         val known = HashSet<String>()
         library.loadBooks().forEach { b ->
             b.formats.forEach { f -> known += File(File(root, f.path), f.fileName).absolutePath }
         }
         val found = root.walkTopDown()
-            .filter { it.isFile && it.extension.uppercase() in SUPPORTED_FORMATS }
+            .filter { it.isFile && it.name != "metadata.db" && it.name !in SKIPPED_FILES }
+            .filter { BookSniff.extensionOf(it, it.name) != null }
             .toList()
         var added = 0
         found.forEach { f ->
             if (f.absolutePath in known) return@forEach
-            if (fileIntoLibrary(f, f.name, move = true) == 1) added++
+            added += fileIntoLibrary(f, f.name, move = true).coerceAtLeast(0)
         }
         if (added > 0) reload()
         added
     }
 
     // ---- Import -----------------------------------------------------------
+
+    /** Why the last import produced nothing, for a toast that says more
+     *  than "没有导入任何文件". */
+    private var lastImportFailure: String? = null
 
     /** Persisted SAF folder used by the in-app device browser, if any. */
     var importTreeUri by mutableStateOf(settings.importTreeUri)
@@ -330,6 +338,7 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
 
     suspend fun import(resolver: ContentResolver, uris: List<Uri>): ImportResult {
         busy = true
+        lastImportFailure = null
         val failures = mutableListOf<String>()
         var added = 0
         withContext(Dispatchers.IO) {
@@ -364,6 +373,7 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun startImport(resolver: ContentResolver, uris: List<Uri>) {
         if (uris.isEmpty() || importTotal > 0) return
+        lastImportFailure = null
         importTotal = uris.size
         importDone = 0
         busy = true
@@ -408,9 +418,11 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
 
     private suspend fun notifyImport(added: Int) {
         val zh = langPref != "en"
+        val problem = lastImportFailure
         val text = when {
             added > 0 -> if (zh) "已导入 $added 本" else
                 if (added == 1) "1 book added" else "$added books added"
+            problem != null -> if (zh) "导入失败 · $problem" else "Import failed · $problem"
             else -> if (zh) "没有导入任何文件" else "Nothing was added"
         }
         withContext(Dispatchers.Main) {
@@ -424,10 +436,68 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
      * the format is not one this app knows.
      */
     suspend fun importFile(file: File, name: String): Boolean = withContext(Dispatchers.IO) {
-        val code = fileIntoLibrary(file, name, move = false)
+        val code = importOne(file, name)
         // The picker's copy in the cache is ours to clean up either way.
         if (code >= 0 && file.parentFile == getApplication<Application>().cacheDir) file.delete()
         code >= 0
+    }
+
+    /**
+     * Files one picked file. A `.zip` that is not an EPUB is read as a
+     * collection and every book inside is filed — that is how most
+     * 「作品集」 arrive. Returns how many books landed, -1 when nothing did.
+     */
+    private fun importOne(file: File, name: String): Int {
+        val ext = BookSniff.extensionOf(file, name)
+        if (ext == BookSniff.ARCHIVE) return importArchive(file)
+        if (ext == null) {
+            lastImportFailure = "$name：文件格式无法识别"
+            return -1
+        }
+        // The sniffed format is what gets stored, so a file that was named
+        // without an extension still lands as a readable EPUB/MOBI/…
+        return fileIntoLibrary(file, if (ext == name.substringAfterLast('.', "").uppercase()) name else "$name.$ext", move = false)
+    }
+
+    /** Extracts a zip of books into the cache and files each one inside. */
+    private fun importArchive(file: File): Int {
+        val tmp = File(getApplication<Application>().cacheDir, "archive-${System.nanoTime()}")
+        if (!tmp.mkdirs()) return -1
+        var added = 0
+        var budget = 0L
+        runCatching {
+            java.util.zip.ZipFile(file).use { zip ->
+                val entries = zip.entries()
+                var n = 0
+                while (entries.hasMoreElements()) {
+                    val entry = entries.nextElement()
+                    val base = entry.name.substringAfterLast('/')
+                    if (entry.isDirectory || base.isEmpty() || base.startsWith(".")) continue
+                    // __MACOSX and friends ride along in zips made on a Mac.
+                    if (entry.name.startsWith("__MACOSX")) continue
+                    if (base.substringAfterLast('.', "").uppercase() !in SUPPORTED_FORMATS) continue
+                    budget += entry.size.coerceAtLeast(0)
+                    if (entry.size > MAX_ARCHIVE_ENTRY || budget > MAX_ARCHIVE_TOTAL) continue
+                    val out = File(tmp, "${n++}-$base")
+                    zip.getInputStream(entry).use { input ->
+                        out.outputStream().use { input.copyTo(it) }
+                    }
+                    if (importFileBlocking(out, base) > 0) added++
+                }
+            }
+        }.onFailure { lastImportFailure = "${file.name}：压缩包读取失败" }
+        tmp.deleteRecursively()
+        if (added == 0 && lastImportFailure == null) {
+            lastImportFailure = "${file.name}：压缩包里没有可导入的书"
+        }
+        return if (added > 0) added else -1
+    }
+
+    /** [importFile] without the coroutine wrapper, for the archive loop. */
+    private fun importFileBlocking(file: File, name: String): Int {
+        val code = importOne(file, name)
+        if (code >= 0) file.delete()
+        return code
     }
 
     /**
@@ -438,8 +508,11 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
      * it — what the library-folder scan needs.
      */
     private fun fileIntoLibrary(file: File, name: String, move: Boolean): Int {
-        val ext = name.substringAfterLast('.', "").uppercase()
-        if (ext !in SUPPORTED_FORMATS) return -1
+        val ext = BookSniff.extensionOf(file, name)
+        if (ext == null || ext == BookSniff.ARCHIVE) {
+            lastImportFailure = "$name：文件格式无法识别"
+            return -1
+        }
         return runCatching {
             // Metadata where the format carries it; the file name carries
             // the rest, so TXT/MD/HTML books still land with a real title.
@@ -453,12 +526,30 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
                 ?: EpubMeta.fileTitleFallback(name)
             val authors = meta?.authors?.takeIf { it.isNotEmpty() } ?: listOf("Unknown")
             // A book already on the shelf under the same title and author is
-            // reported as landed rather than filed twice.
+            // reported as landed rather than filed twice. This runs before
+            // the collection split, so an already-imported book (or a stray
+            // copy of it) is never cut up into its chapters.
             val known = library.loadBooks().any {
                 it.title.equals(title, ignoreCase = true) &&
                     it.authors.firstOrNull()?.equals(authors.first(), ignoreCase = true) == true
             }
             if (known) return@runCatching 0
+            // A collection EPUB (作品集) is not one book: its parts go on
+            // the shelf individually, the collection itself never lands.
+            if (ext == "EPUB") {
+                val tmp = File(getApplication<Application>().cacheDir, "split-${System.nanoTime()}")
+                val parts = EpubSplit.trySplit(file, tmp, meta)
+                if (parts != null) {
+                    var landed = 0
+                    for (part in parts) {
+                        val code = fileIntoLibrary(part.file, "${part.title}.epub", move = true)
+                        if (code > 0) landed += code
+                    }
+                    tmp.deleteRecursively()
+                    if (landed > 0 && move) file.delete()
+                    return@runCatching if (landed > 0) landed else -1
+                }
+            }
             val id = library.insert(
                 title = title,
                 authors = authors,
@@ -484,6 +575,9 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
             }
             if (move && file.absolutePath != target.absolutePath) file.delete()
             1
+        }.onFailure {
+            android.util.Log.e("LibraryViewModel", "import failed: $name", it)
+            lastImportFailure = "$name：${it.message ?: "文件损坏或格式不支持"}"
         }.getOrDefault(-1)
     }
 
@@ -563,7 +657,15 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
     companion object {
 
         /** Only formats the reader can actually open in-app. */
-        val SUPPORTED_FORMATS = setOf("EPUB", "PDF", "TXT", "HTML", "HTM", "MD", "FB2", "MOBI", "AZW3")
+        val SUPPORTED_FORMATS = com.zhijian.reading.data.BookSniff.KNOWN
+
+        /** A single book in a collection zip, and the whole zip: beyond
+         *  these a file is a mistake or a zip bomb, not a 作品集. */
+        private const val MAX_ARCHIVE_ENTRY = 200L * 1024 * 1024
+        private const val MAX_ARCHIVE_TOTAL = 1024L * 1024 * 1024
+
+        /** Bookkeeping files that sit in the library folder but are no book. */
+        private val SKIPPED_FILES = setOf("metadata.db", "metadata.db-journal", "cover.jpg")
 
         /** Filters, searches and orders a list of books. */
         fun applyQuery(books: List<Book>, q: Query, reading: Set<Long> = emptySet()): List<Book> {

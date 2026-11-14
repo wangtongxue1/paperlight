@@ -464,7 +464,12 @@ private fun loadChildren(resolver: ContentResolver, treeUri: Uri, parentDocId: S
             val size = c.getLong(3)
             val isDir = mime == DocumentsContract.Document.MIME_TYPE_DIR
             val ext = name.substringAfterLast('.', "").uppercase()
-            if (isDir || ext in LibraryViewModel.SUPPORTED_FORMATS) {
+            // Zip collections and files the downloader saved without an
+            // extension are books too — the importer sniffs them.
+            val listed = ext in LibraryViewModel.SUPPORTED_FORMATS ||
+                ext == com.zhijian.reading.data.BookSniff.ARCHIVE ||
+                ext.isEmpty()
+            if ((isDir || listed) && !name.startsWith(".")) {
                 out += TreeEntry(docId, name, isDir, size)
             }
         }

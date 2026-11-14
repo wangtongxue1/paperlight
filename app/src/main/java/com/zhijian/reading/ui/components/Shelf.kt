@@ -50,6 +50,8 @@ fun ShelfGrid(
     selectionMode: Boolean = false,
     selectedIds: Set<Long> = emptySet(),
     progress: Map<Long, Float> = emptyMap(),
+    /** Room left under the last row so the floating dock never covers it. */
+    bottomPadding: Dp = 32.dp,
     modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(modifier) {
@@ -62,7 +64,7 @@ fun ShelfGrid(
         LazyVerticalGrid(
             columns = GridCells.Fixed(columns),
             modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(top = 6.dp, bottom = 32.dp),
+            contentPadding = PaddingValues(top = 6.dp, bottom = bottomPadding),
         ) {
             items(books, key = { it.id }) { book ->
                 CoverSlot(
