@@ -2,6 +2,8 @@ package com.zhijian.reading.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -87,17 +90,30 @@ fun LibraryScreen(
     val allShownSelected = shown.isNotEmpty() && selectedIds.containsAll(shown.map { it.id })
 
     // The sort tabs reorder locally: 默认 follows the library order, 更新 is
-    // newest import first, 进度 puts books in progress on top, 书名 uses the
-    // Chinese collation.
+    // newest import first, 进度 puts books in progress on top, 推荐值 ranks by
+    // rating, 书名 uses the Chinese collation, 分类 groups by the first tag,
+    // 字数 puts the longest books first.
     var sortTab by remember { mutableIntStateOf(0) }
     val sorted = remember(shown, sortTab, vm.progress) {
         when (sortTab) {
             1 -> shown.sortedByDescending { it.timestamp }
             2 -> shown.sortedByDescending { vm.progress[it.id] ?: 0f }
-            3 -> {
+            3 -> shown.sortedWith(
+                compareByDescending<Book> { it.rating }
+                    .thenBy(Collator.getInstance(Locale.CHINA)) { it.title },
+            )
+            4 -> {
                 val collator = Collator.getInstance(Locale.CHINA)
                 shown.sortedWith(compareBy(collator) { it.title })
             }
+            5 -> {
+                val collator = Collator.getInstance(Locale.CHINA)
+                shown.sortedWith(
+                    compareBy<Book> { it.tags.firstOrNull() ?: "" }
+                        .thenBy(collator) { it.title },
+                )
+            }
+            6 -> shown.sortedByDescending { it.size }
             else -> shown
         }
     }
@@ -108,12 +124,12 @@ fun LibraryScreen(
             .background(pal.bgApp),
     ) {
         if (selecting) {
-            // Selection mode replaces the header: exit, count, select all,
-            // and the delete action.
+            // Selection mode replaces the header, one aligned row: exit,
+            // 全选 on the left, the count centered, 删除 on the right.
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(start = 12.dp, end = 12.dp, top = 14.dp, bottom = 6.dp),
+                    .padding(start = 6.dp, end = 16.dp, top = 10.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
@@ -133,41 +149,35 @@ fun LibraryScreen(
                         modifier = Modifier.size(21.dp),
                     )
                 }
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = strings.selectedCount(selectedIds.size),
-                        style = Type.display.copy(fontSize = 24.sp),
-                        color = pal.text,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        text = if (allShownSelected) strings.deselectAll else strings.selectAll,
-                        style = Type.small,
-                        color = pal.accent,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(Radius.md.dp))
-                            .clickable {
-                                selectedIds = if (allShownSelected) emptySet() else shown.map { it.id }.toSet()
-                            }
-                            .padding(vertical = 2.dp),
-                    )
-                }
-                Box(
-                    Modifier
-                        .size(40.dp)
+                Text(
+                    text = if (allShownSelected) strings.deselectAll else strings.selectAll,
+                    style = Type.body,
+                    color = pal.accent,
+                    modifier = Modifier
                         .clip(RoundedCornerShape(Radius.md.dp))
-                        .clickable(enabled = selectedIds.isNotEmpty()) { confirmDelete = true },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        androidx.compose.ui.res.painterResource(com.zhijian.reading.R.drawable.ic_r_delete),
-                        null,
-                        tint = if (selectedIds.isEmpty()) pal.iconMuted else pal.danger,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
+                        .clickable {
+                            selectedIds = if (allShownSelected) emptySet() else shown.map { it.id }.toSet()
+                        }
+                        .padding(horizontal = 6.dp, vertical = 8.dp),
+                )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    text = strings.selectedCount(selectedIds.size),
+                    style = Type.title.copy(fontSize = 17.sp),
+                    color = pal.text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    text = strings.deleteAction,
+                    style = Type.body,
+                    color = if (selectedIds.isEmpty()) pal.iconMuted else pal.danger,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(Radius.md.dp))
+                        .clickable(enabled = selectedIds.isNotEmpty()) { confirmDelete = true }
+                        .padding(horizontal = 6.dp, vertical = 8.dp),
+                )
             }
         } else {
             // Search pill, always visible, 微信读书 style.
@@ -232,37 +242,46 @@ fun LibraryScreen(
                     )
                 }
                 ShelfAction(
-                    iconRes = com.zhijian.reading.R.drawable.ic_a_add,
+                    iconRes = com.zhijian.reading.R.drawable.ic_a_add_circle,
                     label = strings.shelfImport,
                     onClick = onImport,
                 )
                 Spacer(Modifier.width(18.dp))
                 ShelfAction(
-                    iconRes = com.zhijian.reading.R.drawable.ic_r_check,
+                    iconRes = com.zhijian.reading.R.drawable.ic_a_check_circle,
                     label = strings.shelfSelect,
                     onClick = { selecting = true },
                 )
             }
 
-            // Sort tabs: 默认 / 更新 / 进度 / 书名.
+            // Sort tabs, the 微信读书 way: one size for every word, the
+            // active one in the accent, evenly spaced on a scrollable line:
+            // 默认 / 更新 / 进度 / 推荐值 / 书名 / 分类 / 字数.
             Row(
                 Modifier
                     .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(22.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
             ) {
                 val tabs = listOf(
                     strings.shelfSortDefault,
                     strings.shelfSortUpdated,
                     strings.shelfSortProgress,
+                    strings.shelfSortRating,
                     strings.shelfSortTitle,
+                    strings.shelfSortCategory,
+                    strings.shelfSortWords,
                 )
                 tabs.forEachIndexed { i, label ->
                     val active = i == sortTab
                     Text(
                         text = label,
-                        style = if (active) Type.title else Type.body,
-                        color = if (active) pal.text else pal.textTertiary,
+                        style = Type.body.copy(
+                            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                        ),
+                        color = if (active) pal.accent else pal.textSecondary,
                         modifier = Modifier
                             .clip(RoundedCornerShape(Radius.sm.dp))
                             .clickable { sortTab = i }

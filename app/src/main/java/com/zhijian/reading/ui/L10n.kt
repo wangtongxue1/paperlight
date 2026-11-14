@@ -52,7 +52,10 @@ interface AppStrings {
     val shelfSortDefault: String
     val shelfSortUpdated: String
     val shelfSortProgress: String
+    val shelfSortRating: String
     val shelfSortTitle: String
+    val shelfSortCategory: String
+    val shelfSortWords: String
 
     // ---- reading now ----
     val continueReading: String
@@ -78,6 +81,7 @@ interface AppStrings {
     val deselectAll: String
     fun deleteBooksTitle(n: Int): String
     val deleteBooksBody: String
+    val deleteAction: String
     val accept: String
     val read: String
     val formats: String
@@ -272,7 +276,10 @@ object StringsZh : AppStrings {
     override val shelfSortDefault = "默认"
     override val shelfSortUpdated = "更新"
     override val shelfSortProgress = "进度"
+    override val shelfSortRating = "推荐值"
     override val shelfSortTitle = "书名"
+    override val shelfSortCategory = "分类"
+    override val shelfSortWords = "字数"
 
     override val continueReading = "继续阅读"
     override val recentlyAdded = "最近添加"
@@ -295,6 +302,7 @@ object StringsZh : AppStrings {
     override val deselectAll = "取消全选"
     override fun deleteBooksTitle(n: Int) = "删除 $n 本书？"
     override val deleteBooksBody = "所选书籍的记录与文件会一并删除，此操作无法撤销。"
+    override val deleteAction = "删除"
     override val accept = "确定"
     override val read = "开始阅读"
     override val formats = "文件"
@@ -485,7 +493,10 @@ object StringsEn : AppStrings {
     override val shelfSortDefault = "Default"
     override val shelfSortUpdated = "Recent"
     override val shelfSortProgress = "Progress"
+    override val shelfSortRating = "Rating"
     override val shelfSortTitle = "Title"
+    override val shelfSortCategory = "Category"
+    override val shelfSortWords = "Length"
 
     override val continueReading = "Continue Reading"
     override val recentlyAdded = "Recently Added"
@@ -508,6 +519,7 @@ object StringsEn : AppStrings {
     override val deselectAll = "Deselect All"
     override fun deleteBooksTitle(n: Int) = if (n == 1) "Delete 1 book?" else "Delete $n books?"
     override val deleteBooksBody = "The selected books and their files are deleted. This cannot be undone."
+    override val deleteAction = "Delete"
     override val accept = "Accept"
     override val read = "Read"
     override val formats = "Formats"
