@@ -51,6 +51,7 @@ import com.zhijian.reading.ui.theme.Radius
 import com.zhijian.reading.ui.theme.Type
 import com.zhijian.reading.ui.theme.palette
 import kotlinx.coroutines.launch
+import android.widget.Toast
 import java.text.Collator
 import java.util.Locale
 
@@ -83,6 +84,8 @@ fun LibraryScreen(
     var selectedIds by remember { mutableStateOf(setOf<Long>()) }
     var confirmDelete by remember { mutableStateOf(false) }
     var importChoose by remember { mutableStateOf(false) }
+    var scanning by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     fun toggle(id: Long) {
@@ -235,16 +238,20 @@ fun LibraryScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text(
-                        text = strings.shelfTitle,
-                        style = Type.display.copy(fontSize = 24.sp),
-                        color = pal.text,
-                    )
-                    Text(
-                        text = strings.bookCount(shown.size),
-                        style = Type.small,
-                        color = pal.textTertiary,
-                    )
+                    // The count hangs centered under the title, symmetric
+                    // with it instead of hugging the same left edge.
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = strings.shelfTitle,
+                            style = Type.display.copy(fontSize = 24.sp),
+                            color = pal.text,
+                        )
+                        Text(
+                            text = strings.bookCount(shown.size),
+                            style = Type.small,
+                            color = pal.textTertiary,
+                        )
+                    }
                 }
                 ShelfAction(
                     iconRes = com.zhijian.reading.R.drawable.ic_a_add_circle,
@@ -437,7 +444,8 @@ fun LibraryScreen(
     }
 
     if (importChoose) {
-        // 导入 books two ways: online (a direct file link) or this device.
+        // 导入 books three ways: online (a direct file link), this device,
+        // or a sweep of the MyBooks folder for books added by hand.
         AlertDialog(
             onDismissRequest = { importChoose = false },
             containerColor = pal.surfaceRaised,
@@ -464,6 +472,25 @@ fun LibraryScreen(
                     ) {
                         importChoose = false
                         onImport()
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    ImportChoice(
+                        iconRes = com.zhijian.reading.R.drawable.ic_a_folder,
+                        title = strings.storageScan,
+                        note = strings.importScanNote,
+                        tintAccent = false,
+                    ) {
+                        importChoose = false
+                        scanning = true
+                        scope.launch {
+                            val added = vm.scanLibraryFolder()
+                            scanning = false
+                            Toast.makeText(
+                                context,
+                                strings.storageScanned(added),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
                     }
                 }
             },

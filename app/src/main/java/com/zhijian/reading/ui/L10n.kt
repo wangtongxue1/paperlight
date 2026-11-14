@@ -62,6 +62,7 @@ interface AppStrings {
     val importOnlineNote: String
     val importLocal: String
     val importLocalNote: String
+    val importScanNote: String
     val onlineImportTitle: String
 
     // ---- reading now ----
@@ -309,6 +310,7 @@ object StringsZh : AppStrings {
     override val importOnlineNote = "填写文件直链，下载后自动进书架"
     override val importLocal = "本机导入"
     override val importLocalNote = "浏览本机目录，勾选导入"
+    override val importScanNote = "扫描 MyBooks 文件夹，收进手动放入的书"
     override val onlineImportTitle = "在线导入"
 
     override val continueReading = "继续阅读"
@@ -545,6 +547,7 @@ object StringsEn : AppStrings {
     override val importOnlineNote = "Paste a direct file link, it lands on the shelf"
     override val importLocal = "On this device"
     override val importLocalNote = "Browse a local folder and pick books"
+    override val importScanNote = "Scan the MyBooks folder for books added by hand"
     override val onlineImportTitle = "Online import"
 
     override val continueReading = "Continue Reading"

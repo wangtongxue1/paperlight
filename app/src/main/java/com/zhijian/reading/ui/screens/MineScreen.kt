@@ -5,7 +5,6 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings as SysSettings
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -26,11 +25,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -68,8 +62,6 @@ fun MineScreen(
     val strings = strings
     val finished = vm.progress.values.count { it >= 0.99f }
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var scanning by remember { mutableStateOf(false) }
 
     // The move only takes effect once the system grants 所有文件访问, so it
     // happens when that page comes back — not when it is opened. Books live
@@ -193,25 +185,6 @@ fun MineScreen(
                         note = strings.storageNote,
                         enabled = !vm.storageBusy,
                         onClick = { requestStorage() },
-                    )
-                }
-                if (vm.usingPublicStorage) {
-                    Hairline()
-                    ActionLine(
-                        title = strings.storageScan,
-                        enabled = !scanning && !vm.storageBusy,
-                        onClick = {
-                            scanning = true
-                            scope.launch {
-                                val added = vm.scanLibraryFolder()
-                                scanning = false
-                                Toast.makeText(
-                                    context,
-                                    strings.storageScanned(added),
-                                    Toast.LENGTH_SHORT,
-                                ).show()
-                            }
-                        },
                     )
                 }
             }

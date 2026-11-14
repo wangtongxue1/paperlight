@@ -3,6 +3,12 @@
 纸间阅读 **Paperlight** —— Apple Books 风格的 Android 阅读器（EPUB / PDF / TXT / MOBI / AZW3 / HTML / MD / FB2）。
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.6.2] - 2026-11-14
+
+### 变更
+- 「扫描文件夹里的新书」从「我的-书库」迁到书架的「⊕ 导入」弹窗里，成为第三个导入方式（在线导入 / 本机导入 / 扫描文件夹），行为不变：扫描 `MyBooks` 收进手动放入的书并提示结果。
+- 书架标题下的藏书数量（如「82 本」）改为居中挂在「书架」二字正下方，不再顶着同一条左边缘。
+
 ## [1.6.1] - 2026-11-14
 
 ### 新增
