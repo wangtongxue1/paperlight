@@ -4,17 +4,17 @@
 
 > Reading between the pages.
 
-一款安静、快速的安卓电子书阅读器。读写 **calibre 书库**（`metadata.db`），开箱即带一柜公版中文典籍，支持**链接导入**与**本机导入**。
+一款安静、快速的安卓电子书阅读器。读写 **calibre 书库**（`metadata.db`），开箱即带一柜完整公版中文典籍，支持**扫描文件夹**、**本机导入**与**链接导入**。
 
-A calm, fast Android e-book reader that reads and writes **calibre libraries**, ships with Chinese public-domain classics, and imports books from a link or from the device.
+A calm, fast Android e-book reader that reads and writes **calibre libraries**, ships with full texts of Chinese public-domain classics, and imports books by scanning a folder, from the device, or from a link.
 
 | 书架 | 详情 | 阅读 |
 | --- | --- | --- |
 | ![书架](docs/screenshots/01-library.png) | ![详情](docs/screenshots/02-detail.png) | ![阅读](docs/screenshots/03-reader.png) |
 
-| 本机导入 | 阅读 | 我的 |
+| 本机导入 | 阅读页 | 我的 |
 | --- | --- | --- |
-| ![本机导入](docs/screenshots/10-local-import.png) | ![阅读](docs/screenshots/05-reading-now.png) | ![我的](docs/screenshots/09-mine.png) |
+| ![本机导入](docs/screenshots/10-local-import.png) | ![阅读页](docs/screenshots/05-reading-now.png) | ![我的](docs/screenshots/09-mine.png) |
 
 | 深色主题 |
 | --- |
@@ -23,18 +23,21 @@ A calm, fast Android e-book reader that reads and writes **calibre libraries**, 
 ## 特性
 
 - **calibre 兼容的书库**：`metadata.db` 使用 calibre 的 schema（user_version 28），一本书一个文件夹，封面为 `cover.jpg`。同一个文件夹既能在 calibre 打开，也能在本应用打开——没有私有格式，没有锁定。
-- **三种取书方式**
-  - **内置公版典籍**：《道德经》《论语》《庄子》《孙子兵法》《三字经》《千字文》《唐诗选》《宋词选》《红楼梦》《三国演义》《水浒传》《西游记》《古文观止选》《山海经选》《世说新语选》——真实节选，无需联网；
-  - **链接导入**：粘贴 EPUB / PDF / TXT 直链，下载即入库（自动读取书名、作者、封面）；
-  - **本机导入**：应用内文件浏览，SAF 一次授权，批量导入 EPUB、PDF、TXT、MOBI、HTML、MD、FB2（自动读取书名、作者、封面）。
+- **四种取书方式**
+  - **内置公版典籍**：14 部完整收录——《道德经》（81 章）、《论语》（20 篇）、《大学》《中庸》《孙子兵法》（13 篇）、《庄子》内篇、《三字经》《千字文》《弟子规》，以及《唐诗选》《宋词选》《古文观止选》《山海经选》《世说新语选》，无需联网；
+  - **扫描文件夹**：手动把书放进设备的 `MyBooks` 文件夹，一键扫描入库；
+  - **本机导入**：应用内文件浏览，SAF 一次授权，批量导入 EPUB、PDF、TXT、MOBI、HTML、MD、FB2（自动读取书名、作者、封面）；
+  - **链接导入**：粘贴 EPUB / PDF / TXT 直链，下载即入库（自动读取书名、作者、封面）。
 - **阅读器**：EPUB / PDF / TXT / MOBI / HTML / MD / FB2 渲染、全文查找、自动翻页、字号缩放、进度记忆（「阅读」页显示继续阅读）。
+- **在读管理**：「正在阅读」「已读完」独立页面；已读完的书点开即从头重读，进度重新计算，并累计**阅读次数**。
+- **书架整理**：默认 / 进度 / 书名（拼音序）/ 分类 / 字数五种排序；分类页按 标签 → 系列 → 作者 分级归类；删除书籍时可选是否同时删除本地文件。
 - **完整元数据**：书名、作者、丛书、出版社、日期、语言、ISBN、标签、评分、简介，均可编辑；封面可更换。
 - **界面语言**：默认中文，内置 English；「我的」页可切换或跟随系统。
 - **深浅两套主题**：纸感浅色（默认）与暖墨深色。
 
 ## 设计
 
-纸、墨、一点朱砂。界面语言取自 Apple Books 的节奏：大标题、大封面、圆角与留白；中文标题用宋体，正文用衬线体，界面文字用无衬线体。底部是 iOS 式**悬浮 Dock**：圆角胶囊、软阴影、悬浮于屏幕底缘之上，选中变实心朱砂图标，顺序为 **阅读 / 书架 / 我的**。导入（链接导入、本机导入）与设置都收在「我的」里。
+纸、墨、一点朱砂。界面语言取自 Apple Books 的节奏：大标题、大封面、圆角与留白；中文标题用宋体，正文用衬线体，界面文字用无衬线体。底部是 iOS 式**悬浮 Dock**：圆角胶囊、软阴影、悬浮于屏幕底缘之上，选中变实心朱砂图标，顺序为 **阅读 / 书架 / 我的**。导入（扫描文件夹、本机导入、链接导入）收在书架的「⊕ 导入」里，设置收在「我的」里。
 
 ## 构建
 
@@ -74,7 +77,7 @@ keyPassword=***
 
 ## 内置样书声明
 
-内置的 15 部典籍（《道德经》《论语》《红楼梦》等）均为**公有领域**（public domain）文本的真实节选，随应用离线提供，仅供阅读与学习。如发现任何版权方面的问题，请提 Issue，我们会尽快处理。
+内置的 14 部典籍（《道德经》《论语》《孙子兵法》等）均为**公有领域**（public domain）文本：《道德经》《论语》《大学》《中庸》《孙子兵法》《庄子》内篇为完整全文，《三字经》《千字文》《弟子规》为完整蒙学文本，《唐诗选》《宋词选》《古文观止选》《山海经选》《世说新语选》为精选选本。文本据中文维基文库校订并统一转简体，随应用离线提供，仅供阅读与学习。如发现任何版权方面的问题，请提 Issue，我们会尽快处理。
 
 ## 代码结构
 
@@ -102,7 +105,7 @@ app/src/main/java/com/zhijian/reading/
     ├── LibraryViewModel.kt
     ├── theme/             # 纸感设计令牌
     ├── components/        # 封面、封面墙、列表行、控件
-    └── screens/           # 阅读 / 书架 / 我的 / 本机导入 / 详情 / 编辑 / 阅读器 / 浏览
+    └── screens/           # 阅读 / 书架 / 正在阅读·已读完 / 我的 / 本机导入 / 详情 / 编辑 / 阅读器 / 浏览
 ```
 
 ## 已知限制
