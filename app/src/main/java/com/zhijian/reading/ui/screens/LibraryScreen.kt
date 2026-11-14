@@ -455,26 +455,6 @@ fun LibraryScreen(
             text = {
                 Column {
                     ImportChoice(
-                        iconRes = com.zhijian.reading.R.drawable.ic_a_link,
-                        title = strings.importOnline,
-                        note = strings.importOnlineNote,
-                        tintAccent = true,
-                    ) {
-                        importChoose = false
-                        onImportOnline()
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    ImportChoice(
-                        iconRes = com.zhijian.reading.R.drawable.ic_a_import,
-                        title = strings.importLocal,
-                        note = strings.importLocalNote,
-                        tintAccent = false,
-                    ) {
-                        importChoose = false
-                        onImport()
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    ImportChoice(
                         iconRes = com.zhijian.reading.R.drawable.ic_a_folder,
                         title = strings.storageScan,
                         note = strings.importScanNote,
@@ -491,6 +471,26 @@ fun LibraryScreen(
                                 Toast.LENGTH_SHORT,
                             ).show()
                         }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    ImportChoice(
+                        iconRes = com.zhijian.reading.R.drawable.ic_a_import,
+                        title = strings.importLocal,
+                        note = strings.importLocalNote,
+                        tintAccent = false,
+                    ) {
+                        importChoose = false
+                        onImport()
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    ImportChoice(
+                        iconRes = com.zhijian.reading.R.drawable.ic_a_link,
+                        title = strings.importOnline,
+                        note = strings.importOnlineNote,
+                        tintAccent = true,
+                    ) {
+                        importChoose = false
+                        onImportOnline()
                     }
                 }
             },

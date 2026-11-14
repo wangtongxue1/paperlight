@@ -3,6 +3,11 @@
 纸间阅读 **Paperlight** —— Apple Books 风格的 Android 阅读器（EPUB / PDF / TXT / MOBI / AZW3 / HTML / MD / FB2）。
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.6.3] - 2026-11-14
+
+### 变更
+- 导入弹窗顺序调整：扫描文件夹里的新书提到第一位，在线导入移到最后（扫描 / 本机 / 在线）。
+
 ## [1.6.2] - 2026-11-14
 
 ### 变更
