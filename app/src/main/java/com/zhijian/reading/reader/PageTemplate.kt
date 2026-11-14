@@ -53,8 +53,12 @@ object PageTemplate {
               section.chapter + section.chapter { margin-top: 2.4em; padding-top: 1.8em; border-top: 1px solid var(--rule); }
               h1, h2, h3, h4 { line-height: 1.32; margin: 1.6em 0 .8em; font-weight: 600; }
               h1 { font-size: 1.35em; } h2 { font-size: 1.18em; } h3 { font-size: 1.06em; }
-              /* 微信读书 paragraphs are flush-left with paragraph spacing, no indent */
-              p { margin: 0 0 .9em; text-align: justify; }
+              /* 微信读书 paragraphs are flush-left with paragraph spacing, no indent.
+                 orphans/widows must be 1: Chromium's default of 2 pulls a whole
+                 extra line off the page bottom whenever the break would leave a
+                 single line, leaving a conspicuous band of air (measured 290px
+                 on a real page) that WeChat Read never shows. */
+              p { margin: 0 0 .9em; text-align: justify; orphans: 1; widows: 1; }
               img { max-width: 100%; height: auto; display: block; margin: 1.2em auto; }
               blockquote { margin: 1em 0; padding-left: 1em; border-left: 2px solid var(--rule); color: var(--dim); }
               a { color: var(--link); text-decoration: none; }
