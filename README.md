@@ -38,17 +38,17 @@ A calm, fast Android e-book reader that reads and writes **calibre libraries**, 
 
 ## 构建
 
-需要 **JDK 21**、**Android SDK**（compileSdk 35）与 **Gradle 8.11+**（仓库未附带 wrapper，请使用本机 Gradle）。
+需要 **JDK 21**、**Android SDK**（compileSdk 35），仓库自带 Gradle Wrapper。
 
 ```bash
 # 调试版
-gradle :app:assembleDebug
+./gradlew assembleDebug
 
 # 发布版（需要本地签名配置，见下文「发布签名」）
-gradle :app:assembleRelease
+./gradlew assembleRelease
 ```
 
-最低 Android 8.0（API 26），目标 API 35。技术栈：Kotlin · Jetpack Compose · Material 3 · Navigation-Compose · Coil。
+最低 Android 7.0（API 24），目标 API 34。技术栈：Kotlin · Jetpack Compose · Material 3 · Navigation-Compose · Coil。
 
 ### 发布签名
 
@@ -62,6 +62,8 @@ keyPassword=***
 ```
 
 未配置时 release 以未签名产物输出。
+
+> 密钥请自行离线备份。丢失后无法再签发可覆盖升级的同签名版本。
 
 ## 数据与隐私
 
