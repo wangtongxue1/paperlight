@@ -149,6 +149,13 @@ interface AppStrings {
     val searchNext: String
     fun searchCount(n: Int): String
     val searchNone: String
+    val prevChapter: String
+    val nextChapter: String
+    val readerNight: String
+    val readerLight: String
+    val readerCollapse: String
+    val readerColors: String
+    fun readTo(pct: Int): String
     val autoTurn: String
     val autoOff: String
     val autoSlow: String
@@ -300,7 +307,7 @@ object StringsZh : AppStrings {
     override val readerFailed = "这本书无法打开"
     override val readerToc = "目录"
     override val readerAnnotations = "批注"
-    override val readerLook = "界面"
+    override val readerLook = "设置"
     override fun annotationCount(n: Int) = "批注 ($n)"
     override val noToc = "这本书没有目录信息。"
     override val noAnnotations = "还没有批注。选中正文文字即可划线并写下想法。"
@@ -345,6 +352,13 @@ object StringsZh : AppStrings {
     override val searchNext = "下一处"
     override fun searchCount(n: Int) = "找到 $n 处"
     override val searchNone = "没有找到"
+    override val prevChapter = "上一章"
+    override val nextChapter = "下一章"
+    override val readerNight = "夜间"
+    override val readerLight = "亮色"
+    override val readerCollapse = "收起"
+    override val readerColors = "颜色"
+    override fun readTo(pct: Int) = "读到 ${pct}%"
     override val autoTurn = "自动翻页"
     override val autoOff = "关"
     override val autoSlow = "慢速"
@@ -494,7 +508,7 @@ object StringsEn : AppStrings {
     override val readerFailed = "This book could not be opened"
     override val readerToc = "Contents"
     override val readerAnnotations = "Notes"
-    override val readerLook = "Display"
+    override val readerLook = "Settings"
     override fun annotationCount(n: Int) = "Notes ($n)"
     override val noToc = "This book has no table of contents."
     override val noAnnotations = "No notes yet. Select text in the book to highlight it and write a note."
@@ -539,6 +553,13 @@ object StringsEn : AppStrings {
     override val searchNext = "Next"
     override fun searchCount(n: Int) = "$n matches"
     override val searchNone = "No matches"
+    override val prevChapter = "Previous chapter"
+    override val nextChapter = "Next chapter"
+    override val readerNight = "Night"
+    override val readerLight = "Light"
+    override val readerCollapse = "Collapse"
+    override val readerColors = "Colors"
+    override fun readTo(pct: Int) = "Read to ${pct}%"
     override val autoTurn = "Auto page turn"
     override val autoOff = "Off"
     override val autoSlow = "Slow"

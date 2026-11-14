@@ -60,7 +60,17 @@
     pager = null; flow = null;
     body.style.padding = '';
     doc.style.overflow = '';
+    clampScroll();
   }
+
+  // Scroll mode must never pan sideways: a wide child (long code line, an
+  // unbroken URL) would otherwise let horizontal swipe drag the whole page.
+  function clampScroll() {
+    doc.style.overflowX = 'hidden';
+    body.style.overflowX = 'hidden';
+    body.style.touchAction = 'pan-y';
+  }
+  clampScroll();
 
   function layout() {
     if (!pager || !flow) return;
