@@ -17,7 +17,10 @@ import java.util.UUID
  */
 class Library(context: Context, val root: File) {
 
-    private val db = LibraryDb(context.applicationContext, root)
+    /** Exposed so the built-in books can read their texts from assets. */
+    val appContext: Context = context.applicationContext
+
+    private val db = LibraryDb(appContext, root)
 
     init {
         root.mkdirs()

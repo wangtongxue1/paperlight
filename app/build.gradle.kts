@@ -14,8 +14,8 @@ android {
         applicationId = "com.zhijian.reading"
         minSdk = 24
         targetSdk = 34
-        versionCode = 25
-        versionName = "1.6.7"
+        versionCode = 26
+        versionName = "1.6.8"
         vectorDrawables { useSupportLibrary = true }
     }
 

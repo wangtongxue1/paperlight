@@ -141,7 +141,16 @@ object EpubWriter {
     }
 
     private fun chapterXhtml(bookTitle: String, ch: Chapter): String {
-        val body = ch.body.split("\n\n").joinToString("\n") { "<p>${esc(it.trim())}</p>" }
+        // Blank lines separate paragraphs; single newlines are line breaks
+        // inside one paragraph, which is what verse (千字文, 三字经, 诗词)
+        // needs if the lines are not to run together on screen.
+        val body = ch.body
+            .split(Regex("\\n\\s*\\n"))
+            .filter { it.isNotBlank() }
+            .joinToString("\n") { block ->
+                val lines = block.trim().split("\n").map { esc(it.trim()) }
+                "<p>" + lines.joinToString("<br/>") + "</p>"
+            }
         return """
             <?xml version="1.0" encoding="UTF-8"?>
             <!DOCTYPE html>
