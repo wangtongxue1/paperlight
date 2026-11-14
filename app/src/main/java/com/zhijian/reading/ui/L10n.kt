@@ -228,10 +228,14 @@ interface AppStrings {
     val defaultView: String
     val viewShelf: String
     val viewList: String
-    val listStars: String
     val librarySection: String
     val bookCountLabel: String
     val statReading: String
+    val statReadingTime: String
+
+    /** "35 分钟" / "2.4 小时" style short reading-time labels. */
+    fun minutesShort(n: Long): String
+    fun hoursShort(x: String): String
     val about: String
     val aboutBody: String
     val version: String
@@ -454,10 +458,12 @@ object StringsZh : AppStrings {
     override val defaultView = "默认视图"
     override val viewShelf = "封面墙"
     override val viewList = "列表"
-    override val listStars = "列表中显示评分"
     override val librarySection = "书库"
     override val bookCountLabel = "藏书"
     override val statReading = "在读"
+    override val statReadingTime = "阅读时长"
+    override fun minutesShort(n: Long) = "$n 分钟"
+    override fun hoursShort(x: String) = "$x 小时"
     override val about = "关于"
     override val aboutBody = "读写 calibre 书库（metadata.db），可直接打开电脑上已有的 calibre 书库文件夹。"
     override val version = "版本"
@@ -679,10 +685,12 @@ object StringsEn : AppStrings {
     override val defaultView = "Default view"
     override val viewShelf = "Covers"
     override val viewList = "List"
-    override val listStars = "Stars in the list"
     override val librarySection = "Library"
     override val bookCountLabel = "Books"
     override val statReading = "Reading"
+    override val statReadingTime = "Time read"
+    override fun minutesShort(n: Long) = if (n == 1L) "1 min" else "$n mins"
+    override fun hoursShort(x: String) = "$x hrs"
     override val about = "About"
     override val aboutBody =
         "Reads and writes calibre libraries (metadata.db). Point it at a calibre folder you already have."

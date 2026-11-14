@@ -59,9 +59,11 @@ fun ReadingScreen(
     val pal = palette
     val strings = strings
     val progress = vm.progress
-    val inProgress = remember(vm.books, progress) {
+    val lastOpen = vm.lastOpen
+    // 在读的书按最近打开排：继续阅读要接住的是刚放下的那本。
+    val inProgress = remember(vm.books, progress, lastOpen) {
         vm.books.filter { (progress[it.id] ?: 0f) in 0.01f..0.98f }
-            .sortedByDescending { progress[it.id] ?: 0f }
+            .sortedByDescending { lastOpen[it.id] ?: 0L }
     }
     val finished = remember(vm.books, progress) {
         vm.books.filter { (progress[it.id] ?: 0f) >= 0.98f }

@@ -1,7 +1,19 @@
 # 更新日志 · Changelog
 
-纸间阅读 **Paperlight** —— Apple Books 风格的 Android 阅读器（EPUB / PDF / TXT / MOBI / HTML / MD / FB2）。
+纸间阅读 **Paperlight** —— Apple Books 风格的 Android 阅读器（EPUB / PDF / TXT / MOBI / AZW3 / HTML / MD / FB2）。
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
+
+## [1.5.7] - 2026-11-14
+
+### 新增
+- 读书时长统计：阅读器前台停留时间按分钟落盘，返回桌面/锁屏不计；「我的」统计卡新增「阅读时长」一格。
+- AZW3 格式支持：MOBI 解码器解锁 KF8-only 文件，并新实现 HUFF/CDIC 压缩解码（真书《何止故乡》验证）；单文档 AZW3 按一级/二级标题切分为独立章节。
+- 书内目录段剥离升级：目录不再要求整页独立——内嵌在正文文档里的目录段（标题+条目块）会被就地移除，目录-only 的块仍整块剔除。
+
+### 修复
+- 「继续阅读」改为按最近打开时间排序（原先按进度比例，最新读的书可能不在首位）。
+- 阅读时长不再把后台/锁屏时间计入，且仅在解码成功后开始计时。
+- 移除「我的-书架-列表中显示评分」开关及全部关联逻辑。
 
 ## [1.5.6] - 2026-11-14
 

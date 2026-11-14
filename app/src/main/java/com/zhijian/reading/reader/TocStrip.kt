@@ -53,8 +53,13 @@ object TocStrip {
         val strong = lines.count { it.length <= 40 && strongTitle.containsMatchIn(it) }
         val weak = lines.count { it.length <= 40 && weakTitle.containsMatchIn(it) }
         val hasHeading = lines.take(3).any { tocHeading.containsMatchIn(it) }
-        // An explicit 目录 heading plus a run of entries is decisive.
-        if (hasHeading && strong + weak >= 4) return true
+        // An explicit 目录 heading plus a run of entries is decisive. The
+        // entries may be plain prose titles (no 第X章 pattern, no page
+        // numbers), so short lines under the heading count on their own.
+        if (hasHeading && lines.size >= 4) {
+            val short = lines.count { it.length <= 40 }
+            if (strong + weak >= 4 || short >= lines.size * 3 / 4) return true
+        }
         // No heading survived, but the page is a wall of short chapter-ish
         // lines with several real chapter titles in it.
         return lines.size >= 8 && strong >= 3 && strong + weak >= lines.size * 3 / 4

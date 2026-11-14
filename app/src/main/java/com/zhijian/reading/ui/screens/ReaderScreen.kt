@@ -193,6 +193,7 @@ fun ReaderScreen(
     dark: Boolean,
     initialProgress: Float,
     onProgress: (Float) -> Unit,
+    onReadingSeconds: (Int) -> Unit = {},
     onBack: () -> Unit,
     onStripColor: (Color) -> Unit = {},
 ) {
@@ -501,6 +502,49 @@ fun ReaderScreen(
                 webView.destroy()
             }
             onProgress(progress.coerceIn(0f, 1f))
+        }
+    }
+
+    // 读书时长：只在阅读器前台停留时累计（暂停即停表），每分钟落一次盘，
+    // 退出阅读器时补记尾巴。返回桌面、锁屏都不计时间。
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(content) {
+        var acc = 0
+        var resumedAt = android.os.SystemClock.elapsedRealtime()
+        var running = true
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_PAUSE -> {
+                    acc += ((android.os.SystemClock.elapsedRealtime() - resumedAt) / 1000).toInt()
+                    resumedAt = android.os.SystemClock.elapsedRealtime()
+                    running = false
+                }
+                androidx.lifecycle.Lifecycle.Event.ON_RESUME -> {
+                    resumedAt = android.os.SystemClock.elapsedRealtime()
+                    running = true
+                }
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        val job = scope.launch {
+            while (true) {
+                delay(60_000)
+                if (!running) continue
+                val now = android.os.SystemClock.elapsedRealtime()
+                acc += ((now - resumedAt) / 1000).toInt()
+                resumedAt = now
+                if (acc >= 60) {
+                    onReadingSeconds(acc)
+                    acc = 0
+                }
+            }
+        }
+        onDispose {
+            job.cancel()
+            if (running) acc += ((android.os.SystemClock.elapsedRealtime() - resumedAt) / 1000).toInt()
+            if (acc > 0) onReadingSeconds(acc)
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 

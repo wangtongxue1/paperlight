@@ -35,10 +35,6 @@ class Settings(context: Context) {
         get() = p.getBoolean("detailPanel", true)
         set(v) = p.edit().putBoolean("detailPanel", v).apply()
 
-    var showRatings: Boolean
-        get() = p.getBoolean("ratings", true)
-        set(v) = p.edit().putBoolean("ratings", v).apply()
-
     /** Persisted SAF tree for the in-app device browser, or null. */
     var importTreeUri: String?
         get() = p.getString("importTree", null)
@@ -99,6 +95,34 @@ class Settings(context: Context) {
             .toMap()
 
     fun clearProgress(bookId: Long) {
-        reading.edit().remove("p$bookId").apply()
+        reading.edit().remove("p$bookId").remove("t$bookId").remove("o$bookId").apply()
     }
+
+    // ---- Reading time -------------------------------------------------------
+    // Keys "t$bookId" hold the seconds spent in that book's reader; "ttotal"
+    // is the library-wide sum so 我的 never has to walk every book.
+
+    fun addReadingSeconds(bookId: Long, secs: Int) {
+        if (secs <= 0) return
+        reading.edit()
+            .putLong("t$bookId", reading.getLong("t$bookId", 0L) + secs)
+            .putLong("ttotal", reading.getLong("ttotal", 0L) + secs)
+            .apply()
+    }
+
+    fun totalReadingSeconds(): Long = reading.getLong("ttotal", 0L)
+
+    // ---- Last opened --------------------------------------------------------
+    // Keys "o$bookId" remember when the reader last opened each book, so
+    // 继续阅读 can put the newest-read book on stage.
+
+    fun markOpen(bookId: Long) {
+        reading.edit().putLong("o$bookId", System.currentTimeMillis()).apply()
+    }
+
+    fun allLastOpen(): Map<Long, Long> =
+        reading.all.keys
+            .filter { it.startsWith("o") }
+            .mapNotNull { it.drop(1).toLongOrNull() }
+            .associateWith { reading.getLong("o$it", 0L) }
 }

@@ -16,8 +16,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -92,11 +90,12 @@ fun MineScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
         ) {
-            // ---- the library in three numbers ----
+            // ---- the library in three numbers, plus the time spent ----
             StatsCard(
                 books = vm.books.size,
                 reading = vm.readingIds.size,
                 finished = finished,
+                timeText = readingTimeLabel(vm.readSeconds, strings),
             )
 
             // ---- appearance ----
@@ -130,25 +129,6 @@ fun MineScreen(
                         selected = vm.viewMode,
                         options = listOf(strings.viewShelf, strings.viewList),
                         onSelect = { vm.chooseViewMode(it) },
-                    )
-                }
-                Hairline()
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(strings.listStars, style = Type.body, color = pal.text, modifier = Modifier.weight(1f))
-                    Switch(
-                        checked = vm.showRatings,
-                        onCheckedChange = { vm.chooseShowRatings(it) },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = pal.textOnAccent,
-                            checkedTrackColor = pal.accent,
-                            uncheckedThumbColor = pal.textTertiary,
-                            uncheckedTrackColor = pal.subtle,
-                        ),
                     )
                 }
             }
@@ -199,8 +179,15 @@ private fun GroupCard(
     }
 }
 
+/** Minutes under an hour read as 分钟, longer spans as 小时. */
+private fun readingTimeLabel(totalSeconds: Long, strings: com.zhijian.reading.ui.AppStrings): String {
+    val minutes = totalSeconds / 60
+    return if (minutes < 60) strings.minutesShort(minutes)
+    else strings.hoursShort(String.format("%.1f", minutes / 60.0))
+}
+
 @Composable
-private fun StatsCard(books: Int, reading: Int, finished: Int) {
+private fun StatsCard(books: Int, reading: Int, finished: Int, timeText: String) {
     val pal = palette
     val strings = strings
     Row(
@@ -216,17 +203,20 @@ private fun StatsCard(books: Int, reading: Int, finished: Int) {
         StatCell(strings.statReading, "$reading", Modifier.weight(1f))
         StatDivider()
         StatCell(strings.finished, "$finished", Modifier.weight(1f))
+        StatDivider()
+        StatCell(strings.statReadingTime, timeText, Modifier.weight(1.25f), valueSize = 17)
     }
 }
 
 @Composable
-private fun StatCell(label: String, value: String, modifier: Modifier = Modifier) {
+private fun StatCell(label: String, value: String, modifier: Modifier = Modifier, valueSize: Int = 24) {
     val pal = palette
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             value,
-            style = Type.display.copy(fontSize = 24.sp, lineHeight = 28.sp),
+            style = Type.display.copy(fontSize = valueSize.sp, lineHeight = (valueSize + 4).sp),
             color = pal.text,
+            maxLines = 1,
         )
         Spacer(Modifier.height(4.dp))
         Text(label, style = Type.small, color = pal.textTertiary)

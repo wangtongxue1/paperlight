@@ -60,15 +60,30 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
     var viewMode by mutableIntStateOf(settings.viewMode)
         private set
 
-    var showRatings by mutableStateOf(settings.showRatings)
-        private set
-
     var readingIds by mutableStateOf(settings.readingIds())
         private set
 
     /** How far into each book the reader got, 0..1. */
     var progress by mutableStateOf(settings.allProgress())
         private set
+
+    /** When the reader last opened each book, so 继续阅读 leads with the newest. */
+    var lastOpen by mutableStateOf(settings.allLastOpen())
+        private set
+
+    /** Seconds spent reading, across the whole library. */
+    var readSeconds by mutableStateOf(settings.totalReadingSeconds())
+        private set
+
+    fun markOpened(bookId: Long) {
+        settings.markOpen(bookId)
+        lastOpen = settings.allLastOpen()
+    }
+
+    fun addReadingSeconds(bookId: Long, secs: Int) {
+        settings.addReadingSeconds(bookId, secs)
+        readSeconds = settings.totalReadingSeconds()
+    }
 
     init {
         viewModelScope.launch {
@@ -122,11 +137,6 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
     fun chooseViewMode(mode: Int) {
         viewMode = mode
         settings.viewMode = mode
-    }
-
-    fun chooseShowRatings(on: Boolean) {
-        showRatings = on
-        settings.showRatings = on
     }
 
     /** The books the shelf shows, filtered, searched and ordered. */
@@ -321,7 +331,7 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
             // the rest, so TXT/MD/HTML books still land with a real title.
             val meta = when (ext) {
                 "EPUB" -> EpubMeta.parse(file)
-                "MOBI" -> com.zhijian.reading.reader.MobiReader.metadata(file)
+                "MOBI", "AZW3" -> com.zhijian.reading.reader.MobiReader.metadata(file)
                 "FB2" -> com.zhijian.reading.reader.HtmlReader.fb2Metadata(file)
                 else -> null
             }
@@ -442,7 +452,7 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
     companion object {
 
         /** Only formats the reader can actually open in-app. */
-        val SUPPORTED_FORMATS = setOf("EPUB", "PDF", "TXT", "HTML", "HTM", "MD", "FB2", "MOBI")
+        val SUPPORTED_FORMATS = setOf("EPUB", "PDF", "TXT", "HTML", "HTM", "MD", "FB2", "MOBI", "AZW3")
 
         /** Filters, searches and orders a list of books. */
         fun applyQuery(books: List<Book>, q: Query, reading: Set<Long> = emptySet()): List<Book> {

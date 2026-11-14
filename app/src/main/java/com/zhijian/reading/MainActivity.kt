@@ -311,6 +311,7 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
                     if (book == null || file == null) {
                         LaunchedEffect(Unit) { nav.popBackStack() }
                     } else {
+                        LaunchedEffect(book.id) { vm.markOpened(book.id) }
                         ReaderScreen(
                             book = book,
                             file = file,
@@ -318,6 +319,7 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
                             dark = dark,
                             initialProgress = vm.progress[book.id] ?: 0f,
                             onProgress = { vm.markRead(book.id, it) },
+                            onReadingSeconds = { vm.addReadingSeconds(book.id, it) },
                             onBack = { nav.popBackStack() },
                             onStripColor = { stripColor = it },
                         )

@@ -7,11 +7,13 @@ import java.io.File
 import java.nio.charset.Charset
 
 /**
- * Un-DRM'd MOBI / AZW (KF7) files: the PalmDB record list, the PalmDOC
- * header, the MOBI metadata header with its EXTH records, per-record
- * trailing-entry trimming (extra data flags, multibyte overlap) and
- * PalmDOC LZ77 decompression. KF8-only (AZW3) files and anything
- * HUFF/CDIC compressed or encrypted are refused with null, not half-read.
+ * Un-DRM'd MOBI / AZW (KF7) and AZW3 (KF8) files: the PalmDB record list,
+ * the PalmDOC header, the MOBI metadata header with its EXTH records,
+ * per-record trailing-entry trimming (extra data flags, multibyte overlap)
+ * and PalmDOC LZ77 decompression. Anything HUFF/CDIC compressed or
+ * encrypted is refused with null, not half-read. AZW3/KF8 text records are
+ * the same PalmDOC stream as KF7 — the KF8 skeleton only shapes pagination,
+ * which our own engine does anyway — so one decoder serves both.
  *
  * Decompression notes, learned from real books:
  * - The LZ77 back reference packs distance and length as
@@ -25,7 +27,10 @@ import java.nio.charset.Charset
 object MobiReader {
 
     fun prepare(file: File, cacheRoot: File, theme: String = "light"): BookContent? {
-        val mobi = parse(file) ?: return null
+        val mobi = parse(file) ?: run {
+            android.util.Log.e("MobiReader", "parse returned null for ${file.name}")
+            return null
+        }
         return runCatching {
             val dir = File(cacheRoot, "book-" + file.absolutePath.hashCode() + "-" + file.length())
             val body = StringBuilder()
@@ -47,9 +52,40 @@ object MobiReader {
 
             // The body keeps chapters only: a page that is just the book's
             // own table of contents (heading 目录 + a wall of links) lives
-            // in the TOC panel, not in the reading flow.
-            val chunks = splitChunks(mobi.htmlBytes, mobi.encoding)
-                .filter { it.text.isNotBlank() && !isTocPage(it.text) }
+            // in the TOC panel, not in the reading flow. AZW3 books often
+            // carry the TOC INSIDE the single content document, so a chunk
+            // is stripped in place rather than dropped wholesale.
+            val rawChunks = splitChunks(mobi.htmlBytes, mobi.encoding)
+                .filter { it.text.isNotBlank() }
+            var chunks = rawChunks
+                .map { RawChunk(it.start, stripTocSection(it.text) ?: "") }
+                .filter { it.text.isNotBlank() }
+            if (chunks.isEmpty()) {
+                // Everything looked like TOC — keep the book visible rather
+                // than refusing to open.
+                chunks = rawChunks
+            }
+            // Books that ship as one document (many AZW3) carry all their
+            // chapters in a single section; splitting at the top headings
+            // makes 每章独立成页 and the TOC panel work like elsewhere.
+            if (chunks.size == 1) {
+                val one = chunks[0]
+                val marks = Regex("""<h[12]\b""", RegexOption.IGNORE_CASE)
+                    .findAll(one.text).toList()
+                if (marks.size > 1) {
+                    val pieces = mutableListOf<RawChunk>()
+                    pieces += RawChunk(one.start, one.text.substring(0, marks[0].range.first))
+                    for (i in 1 until marks.size) {
+                        val s = marks[i].range.first
+                        val e = if (i + 1 < marks.size) marks[i + 1].range.first else one.text.length
+                        pieces += RawChunk(one.start + s, one.text.substring(s, e))
+                    }
+                    val real = pieces.filter {
+                        PageTemplate.stripTags(it.text).replace(Regex("\\s+"), "").isNotBlank()
+                    }
+                    if (real.size > 1) chunks = real
+                }
+            }
 
             val sections = chunks.mapIndexed { i, chunk ->
                 PageTemplate.chapter(i, rewritten(chunk.text, imageUris))
@@ -66,7 +102,7 @@ object MobiReader {
                 dir = imgDir,
                 toc = toc,
             )
-        }.getOrNull()
+        }.onFailure { android.util.Log.e("MobiReader", "prepare failed for ${file.name}", it) }.getOrNull()
     }
 
     fun metadata(file: File): FileMetadata? {
@@ -154,10 +190,16 @@ object MobiReader {
             val mobiLen = u32(rec0, 20).toInt()
             if (mobiLen <= 0 || 16 + mobiLen > rec0.size) return null
 
-            // HUFF/CDIC (compression 17480) and KF8-only files are out of scope.
-            if (compression == 17480) return null
+            // HUFF/CDIC (compression 17480) needs the huffman table records.
+            var huff: HuffCdic? = null
+            if (compression == 17480) {
+                val huffOff = u32(rec0, 16 + 96).toInt()
+                val huffCnt = u32(rec0, 16 + 100).toInt()
+                if (huffOff <= 0 || huffCnt <= 0 || huffOff + huffCnt > numRecords) return null
+                val recs = (huffOff until huffOff + huffCnt).mapNotNull { get(it) }
+                huff = HuffCdic.parse(recs) ?: return null
+            }
             val hasBoundary = indexOf(rec0, "BOUNDARY".toByteArray())
-            var mobiType = u32(rec0, 16 + 8).toInt()
 
             var fullNameOffset = 0
             var fullNameLength = 0
@@ -174,7 +216,7 @@ object MobiReader {
             }
             if (mobiLen >= 100) {
                 val huffOff = u32(rec0, 16 + 96).toInt()
-                if (huffOff > 0) return null
+                if (huffOff > 0 && compression != 17480) return null
             }
 
             // Extra data flags (rec0[0xF2]): how many varint trailing
@@ -198,9 +240,7 @@ object MobiReader {
             if (hasBoundary >= 0 && hasBoundary + 12 <= rec0.size) {
                 val kf8Start = u32(rec0, hasBoundary + 8).toInt()
                 if (kf8Start in 2 until limit) limit = kf8Start - 1
-                mobiType = 2
             }
-            if (mobiType == 8 && hasBoundary < 0) return null
 
             val exth = linkedMapOf<Long, ByteArray>()
             val exthFlags = if (mobiLen >= 116) u32(rec0, 16 + 112) else 0
@@ -235,6 +275,7 @@ object MobiReader {
                 val plain = when (compression) {
                     1 -> trimmed
                     2 -> palmDoc(trimmed, out.size() + trimmed.size * 8)
+                    17480 -> huff?.unpack(trimmed) ?: return null
                     else -> return null
                 }
                 out.write(plain, 0, plain.size)
@@ -258,7 +299,7 @@ object MobiReader {
                 htmlBytes = bytes,
             )
         }
-    }.getOrNull()
+    }.onFailure { android.util.Log.e("MobiReader", "parse threw for ${file.name}", it) }.getOrNull()
 
     private fun record(file: File, mobi: Mobi, index: Int): ByteArray? = runCatching {
         val offsets = mobi.recordOffsets
@@ -307,6 +348,123 @@ object MobiReader {
         }
         return out.toByteArray()
     }
+
+    // ---- HUFF/CDIC (MOBI compression 17480, common in AZW3/KF8) --------------
+    // Port of the classic KindleUnpack algorithm: the HUFF record holds two
+    // tables (dict1: per-first-byte code length/termination/maxcode; dict2:
+    // per-length min/max codes), the CDIC records hold phrase slices the
+    // bitstream indexes into. Slices flagged "not decompressed" recurse.
+
+    private class HuffCdic private constructor(
+        private val codeLen: IntArray,
+        private val term: BooleanArray,
+        private val maxCode1: LongArray,
+        private val minCode: LongArray,
+        private val maxCode: LongArray,
+    ) {
+        // Mutable cache: (bytes, already-decompressed). Null entries are
+        // reserved phrases the file never references.
+        private val dictionary = ArrayList<Pair<ByteArray, Boolean>?>()
+
+        fun unpack(data: ByteArray): ByteArray {
+            var bitsLeft = data.size * 8
+            val buf = data + ByteArray(8)
+            var pos = 0
+            var x = u64(buf, 0)
+            var n = 32
+            val out = ByteArrayOutputStream(4096)
+            while (true) {
+                if (n <= 0) {
+                    pos += 4
+                    x = u64(buf, pos)
+                    n += 32
+                }
+                val code = (x ushr n) and 0xFFFFFFFFL
+                val slot = (code ushr 24).toInt()
+                var codelen = codeLen[slot]
+                var limit = maxCode1[slot]
+                if (!term[slot]) {
+                    while (codelen < 33 && code < minCode[codelen]) codelen++
+                    if (codelen > 32) throw IllegalStateException("huff code overrun")
+                    limit = maxCode[codelen]
+                }
+                n -= codelen
+                bitsLeft -= codelen
+                if (bitsLeft < 0) break
+                val r = ((limit - code) ushr (32 - codelen)).toInt()
+                if (r < 0 || r >= dictionary.size) throw IllegalStateException("huff phrase $r out of range")
+                val (raw, done) = dictionary[r] ?: throw IllegalStateException("huff phrase $r null")
+                val slice = if (done) raw else {
+                    val plain = unpack(raw)
+                    dictionary[r] = plain to true
+                    plain
+                }
+                out.write(slice)
+            }
+            return out.toByteArray()
+        }
+
+        companion object {
+            fun parse(records: List<ByteArray>): HuffCdic? = runCatching {
+                val huff = records.firstOrNull() ?: return null
+                if (huff.size < 24 || String(huff, 0, 4) != "HUFF") return null
+                if (u32(huff, 4) != 0x18L) return null
+                val off1 = u32(huff, 8).toInt()
+                val off2 = u32(huff, 12).toInt()
+                if (off1 <= 0 || off1 + 256 * 4 > huff.size) return null
+                if (off2 <= 0 || off2 + 64 * 4 > huff.size) return null
+
+                val codeLen = IntArray(256)
+                val term = BooleanArray(256)
+                val maxCode1 = LongArray(256)
+                for (i in 0 until 256) {
+                    val v = u32(huff, off1 + 4 * i)
+                    val cl = (v and 0x1F).toInt()
+                    if (cl == 0) return null
+                    codeLen[i] = cl
+                    term[i] = v and 0x80L != 0L
+                    // KindleUnpack keeps these UNMASKED (they can exceed 32
+                    // bits); masking breaks the min/max comparisons.
+                    maxCode1[i] = (((v ushr 8) + 1) shl (32 - cl)) - 1
+                }
+
+                val minCode = LongArray(33)
+                val maxCode = LongArray(33)
+                for (c in 1..32) {
+                    val lo = u32(huff, off2 + 4 * ((c - 1) * 2))
+                    val hi = u32(huff, off2 + 4 * ((c - 1) * 2 + 1))
+                    minCode[c] = lo shl (32 - c)
+                    maxCode[c] = ((hi + 1) shl (32 - c)) - 1
+                }
+
+                val cd = HuffCdic(codeLen, term, maxCode1, minCode, maxCode)
+                for (k in 1 until records.size) {
+                    val cdic = records[k]
+                    if (cdic.size < 20 || String(cdic, 0, 4) != "CDIC") return null
+                    if (u32(cdic, 4) != 0x10L) return null
+                    val phrases = u32(cdic, 8).toInt()
+                    val bits = u32(cdic, 12).toInt()
+                    val n = minOf(1 shl bits, phrases - cd.dictionary.size)
+                    if (n <= 0) break
+                    for (i in 0 until n) {
+                        val off = u16(cdic, 16 + 2 * i)
+                        val blen = u16(cdic, 16 + off)
+                        val slice = cdic.copyOfRange(18 + off, 18 + off + (blen and 0x7FFF))
+                        cd.dictionary.add(slice to (blen and 0x8000 != 0))
+                    }
+                }
+                cd
+            }.getOrNull()
+        }
+    }
+
+    private fun u64(b: ByteArray, at: Int): Long {
+        var v = 0L
+        for (k in 0 until 8) v = (v shl 8) or (b[at + k].toLong() and 0xFF)
+        return v
+    }
+
+    private fun u16(b: ByteArray, at: Int): Int = (b[at].toInt() and 0xFF) shl 8 or (b[at + 1].toInt() and 0xFF)
 
     // ---- trailing entries -------------------------------------------------------
     // Text records of MOBI v5+ files carry a small footer (extra data flags,
@@ -372,15 +530,50 @@ object MobiReader {
             .replace(Regex("""\s(recindex|lowrecindex|multimediarecindex|audiorecindex|coverage recindex)="[^"]*"""", RegexOption.IGNORE_CASE), "")
 
     /**
-     * A page that is nothing but a link listing under a 目录 heading. Real
-     * conversions (calibre, KINDLEGEN) emit one as the first pagebreak
-     * chunk; the reading flow doesn't need it twice.
+     * Removes the book's own 目录 section from a chunk of HTML: finds the
+     * heading block (目录/Contents), runs over the entry blocks that follow
+     * (short, no sentence punctuation, no heading of their own), and joins
+     * the HTML before the heading with everything from the first real
+     * content block. Returns null when the chunk is TOC-only or carries no
+     * recognizable TOC layout — the caller decides what that means.
      */
-    private fun isTocPage(chunk: String): Boolean {
-        val linkCount = Regex("<a[\\s>]", RegexOption.IGNORE_CASE).findAll(chunk).count()
-        if (linkCount < 3) return false
-        val text = PageTemplate.unescape(PageTemplate.stripTags(chunk)).replace(Regex("\\s+"), "")
-        return text.startsWith("目录")
+    private val htmlBlock = Regex(
+        """<(h[1-6]|p|div|li|td|blockquote)\b[^>]*>[\s\S]*?</\1\s*>""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    private val tocHeadingLine = Regex(
+        """^\s*(目\s*录|目\s*次|contents|table\s+of\s+contents)\s*$""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    private fun blockText(b: String): String =
+        PageTemplate.unescape(PageTemplate.stripTags(b)).replace(Regex("\\s+"), " ").trim()
+
+    private fun isTocEntryBlock(b: String, text: String): Boolean {
+        if (text.isEmpty() || text.length > 60) return false
+        if (text.endsWith("。") || text.endsWith("！") || text.endsWith("？")) return false
+        if (Regex("""<(h[1-6]|img)\b""", RegexOption.IGNORE_CASE).containsMatchIn(b)) return false
+        return true
+    }
+
+    private fun stripTocSection(html: String): String? {
+        val blocks = htmlBlock.findAll(html).toList()
+        val hIdx = blocks.indices.take(6).firstOrNull { i ->
+            tocHeadingLine.containsMatchIn(blockText(blocks[i].value))
+        } ?: return html
+        var k = hIdx + 1
+        var entries = 0
+        while (k < blocks.size) {
+            val t = blockText(blocks[k].value)
+            if (t.isEmpty()) { k++; continue }
+            if (isTocEntryBlock(blocks[k].value, t)) { entries++; k++; continue }
+            break
+        }
+        if (entries < 2) return html
+        if (k >= blocks.size) return null
+        val out = html.substring(0, blocks[hIdx].range.first) + html.substring(blocks[k].range.first)
+        return out.ifBlank { null }
     }
 
     /** One pagebreak-delimited chunk: its byte range plus the decoded text. */
@@ -506,7 +699,6 @@ object MobiReader {
         return -1
     }
 
-    private fun u16(b: ByteArray, at: Int): Int = (b[at].toInt() and 0xFF) shl 8 or (b[at + 1].toInt() and 0xFF)
 
     private fun u32(b: ByteArray, at: Int): Long =
         ((b[at].toLong() and 0xFF) shl 24) or ((b[at + 1].toLong() and 0xFF) shl 16) or
