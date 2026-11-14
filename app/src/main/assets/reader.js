@@ -21,13 +21,13 @@
   var body = document.body;
   var doc = document.documentElement;
   var pager = null, flow = null;
-  // 微信读书 proportions: the text column floats with air above and below,
-  // never flush with the screen edges — top ≈ 10% of the viewport for the
-  // quiet chapter mark, bottom ≈ 11% so the page number never touches text.
-  var PAD = 24;   // horizontal padding inside each column, matches the page's
+  // 微信读书 measured proportions (1220x2656 @ dpr 3.25):
+  //   horizontal margin 30px, text ink starts 116px from screen top,
+  //   column bottom ~57px above screen bottom, font 20px / line 38px.
+  var PAD = 30;   // horizontal padding inside each column, matches the page's
   var GAP = 2 * PAD;  // gutter = two page margins, so each page shows
-                      // [margin][column][margin] with symmetric 24px edges
-  var PADTOP = 80, PADBOT = 92;
+                      // [margin][column][margin] with symmetric 30px edges
+  var PADTOP = 61, PADBOT = 57;
   var STEP = 0;   // distance from one column's start to the next
 
   function post(type, data) {
@@ -585,7 +585,7 @@
   };
 
   R.setFontScale = function (s) {
-    body.style.fontSize = (19 * s) + 'px';
+    body.style.fontSize = (20 * s) + 'px';
     if (R.mode === 'paged' && pager) { layout(); gotoRatio(R.ratio); }
     setTimeout(postMetrics, 80);
   };

@@ -61,7 +61,7 @@ class Settings(context: Context) {
 
     /** Reader body line height, 1 = the book's own. */
     var readerLineHeight: Float
-        get() = p.getFloat("readerLineHeight", 1.78f)
+        get() = p.getFloat("readerLineHeight", 1.9f)
         set(v) = p.edit().putFloat("readerLineHeight", v).apply()
 
     /** Reader text face: "serif" (default) or "sans". */

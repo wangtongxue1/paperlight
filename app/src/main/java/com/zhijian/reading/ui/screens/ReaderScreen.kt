@@ -719,7 +719,7 @@ fun ReaderScreen(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier
                         .align(Alignment.TopStart)
-                        .padding(start = 22.dp, top = 6.dp)
+                        .padding(start = 28.dp, top = 21.dp)
                         .fillMaxWidth(0.6f),
                 )
             }
@@ -733,7 +733,7 @@ fun ReaderScreen(
                 color = markInk,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 22.dp, bottom = navBottom + 6.dp),
+                    .padding(end = 28.dp, bottom = navBottom + 10.dp),
             )
         }
 

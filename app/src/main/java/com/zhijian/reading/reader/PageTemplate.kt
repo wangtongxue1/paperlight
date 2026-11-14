@@ -43,17 +43,18 @@ object PageTemplate {
               :root { color-scheme: light; }
               html.pl-dark { color-scheme: dark; }
               body {
-                margin: 0; padding: 80px 24px 92px;
+                margin: 0; padding: 61px 30px 57px;
                 background: var(--bg); color: var(--ink);
                 font-family: -apple-system, 'Noto Sans', 'Microsoft YaHei', sans-serif;
-                font-size: 19px; line-height: 1.9;
+                font-size: 20px; line-height: 1.9;
                 -webkit-text-size-adjust: 100%;
                 word-wrap: break-word;
               }
               section.chapter + section.chapter { margin-top: 2.4em; padding-top: 1.8em; border-top: 1px solid var(--rule); }
               h1, h2, h3, h4 { line-height: 1.32; margin: 1.6em 0 .8em; font-weight: 600; }
               h1 { font-size: 1.35em; } h2 { font-size: 1.18em; } h3 { font-size: 1.06em; }
-              p { margin: 0 0 1.3em; text-indent: 2em; text-align: justify; }
+              /* 微信读书 paragraphs are flush-left with paragraph spacing, no indent */
+              p { margin: 0 0 1em; text-align: justify; }
               img { max-width: 100%; height: auto; display: block; margin: 1.2em auto; }
               blockquote { margin: 1em 0; padding-left: 1em; border-left: 2px solid var(--rule); color: var(--dim); }
               a { color: var(--link); text-decoration: none; }
