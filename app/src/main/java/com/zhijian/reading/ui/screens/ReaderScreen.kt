@@ -763,9 +763,10 @@ fun ReaderScreen(
         }
 
         // ---- quiet marks, 微信读书 style: chapter top-left, page bottom-right.
-        // Both reading modes show the same marks — 上下滚动 only differs in
-        // the bottom-right corner, where it has pages to count so it shows a
-        // percentage instead.
+        // Both reading modes show the same marks: the engine counts pages in
+        // scroll mode as well (one screenful to a page), so the corner reads
+        // 第 x / 共 y 页 in either mode and only falls back to a percentage
+        // before the first metrics arrive.
         if (!chromeOn) {
             val markInk = chromeInkFaint
             Text(
@@ -780,7 +781,7 @@ fun ReaderScreen(
                     .fillMaxWidth(0.6f),
             )
             Text(
-                text = if (info.mode == "paged" && info.pages > 0) {
+                text = if (info.pages > 0) {
                     strings.pagePos(info.page, info.pages)
                 } else {
                     "${(info.ratio * 100).toInt()}%"
@@ -929,7 +930,6 @@ fun ReaderScreen(
                         sp = sp,
                         ratio = info.ratio,
                         shown = shown,
-                        mode = info.mode,
                         page = info.page,
                         pages = info.pages,
                         chapter = info.chapter,
@@ -1429,7 +1429,6 @@ private fun ProgressSheet(
     sp: SheetPal,
     ratio: Float,
     shown: Float,
-    mode: String,
     page: Int,
     pages: Int,
     chapter: Int,
@@ -1453,14 +1452,14 @@ private fun ProgressSheet(
             modifier = Modifier.weight(1f),
         )
         StatCell(
-            value = if (mode == "paged" && pages > 0) {
+            value = if (pages > 0) {
                 "$page/$pages"
             } else if (chapterTotal > 0) {
                 "${chapter + 1}/$chapterTotal"
             } else {
                 "-"
             },
-            label = if (mode == "paged" && pages > 0) strings.readerPage else strings.readerChapter,
+            label = if (pages > 0) strings.readerPage else strings.readerChapter,
             ink = sp.ink,
             faint = sp.faint,
             modifier = Modifier.weight(1f),

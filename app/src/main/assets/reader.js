@@ -347,7 +347,14 @@
       var max = doc.scrollHeight - window.innerHeight;
       R.ratio = max > 0 ? Math.min(1, Math.max(0, (window.scrollY || 0) / max)) : 0;
       R.chapter = currentChapter();
-      post('metrics', { mode: 'scroll', page: 0, pages: 0, chapter: R.chapter, ratio: R.ratio });
+      // Scroll mode counts pages too, one screenful to a page, so the corner
+      // mark and the 进度 sheet read exactly like the paged mode's do. The
+      // count is derived from the same ratio the progress bar uses, so page
+      // and percentage can never disagree with each other.
+      var vh = Math.max(1, window.innerHeight);
+      R.pages = Math.max(1, Math.round(doc.scrollHeight / vh));
+      R.page = R.pages > 1 ? Math.round(R.ratio * (R.pages - 1)) : 0;
+      post('metrics', { mode: 'scroll', page: R.page + 1, pages: R.pages, chapter: R.chapter, ratio: R.ratio });
     }
   }
 
