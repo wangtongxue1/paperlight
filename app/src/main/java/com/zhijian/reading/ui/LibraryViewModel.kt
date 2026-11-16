@@ -231,8 +231,8 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
         reload()
     }
 
-    fun markRead(bookId: Long, progress: Float) {
-        settings.markRead(bookId, progress)
+    fun markRead(bookId: Long, format: String, progress: Float) {
+        settings.markReadFor(bookId, format, progress)
         // Reaching the last page counts as one read-through, once: the tick
         // stays set until the book is deliberately started over, so scrolling
         // back over the end does not count again.
@@ -245,13 +245,16 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
         this.progress = settings.allProgress()
     }
 
+    /** Where [format] of [bookId] stood, independent of the book's other formats. */
+    fun progressOf(bookId: Long, format: String): Float = settings.progressFor(bookId, format)
+
     /**
      * Starts [book] over from the first page — what 已读完 offers when the
      * reader is opened again. The number of read-throughs is kept, the tick
      * that guarded it is cleared so finishing it again counts once more.
      */
     fun restartReading(book: Book) {
-        settings.markRead(book.id, 0f)
+        settings.restartProgress(book.id)
         settings.setCountedFinished(book.id, false)
         readingIds = settings.readingIds()
         progress = settings.allProgress()

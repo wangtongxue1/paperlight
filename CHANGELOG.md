@@ -3,6 +3,14 @@
 纸间阅读 **Paperlight** —— Apple Books 风格的 Android 阅读器（EPUB / PDF / TXT / MOBI / AZW3 / HTML / MD / FB2）。
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.7.4] - 2026-11-16
+
+### Fixed
+
+- 同一本书的 EPUB/PDF 不再共享同一个阅读进度：每种格式各记各的位置（读 PDF 不会把 EPUB 的进度覆盖掉，也不会从 EPUB 的位置续读）
+- 书架/详情页/统计显示的百分比仍是一本书一个值——跟随最近在读的那种格式
+- 「重新开始」现在会同时清掉所有格式的进度
+
 ## [1.7.3] - 2026-11-16
 
 ### Fixed

@@ -72,10 +72,31 @@ class Settings(context: Context) {
 
     // ---- Reading progress -------------------------------------------------
 
-    fun progress(bookId: Long): Float = reading.getFloat("p$bookId", 0f)
+    // Keys "pf$bookId:$format" keep each format's own place in the book, so
+    // reading the PDF of a dual-format book never moves the EPUB's progress
+    // (and never resumes it from where the EPUB stood). "p$bookId" stays the
+    // display value — whatever format was read last.
 
-    fun markRead(bookId: Long, value: Float) {
-        reading.edit().putFloat("p$bookId", value.coerceIn(0f, 1f)).apply()
+    fun progressFor(bookId: Long, format: String): Float {
+        val v = reading.getFloat("pf$bookId:$format", -1f)
+        return if (v >= 0f) v else reading.getFloat("p$bookId", 0f)
+    }
+
+    fun markReadFor(bookId: Long, format: String, value: Float) {
+        val v = value.coerceIn(0f, 1f)
+        reading.edit()
+            .putFloat("pf$bookId:$format", v)
+            .putFloat("p$bookId", v)
+            .apply()
+    }
+
+    /** Clears the book's place in every format — what 重新开始 does. */
+    fun restartProgress(bookId: Long) {
+        val perFormat = reading.all.keys.filter { it.startsWith("pf$bookId:") }
+        reading.edit().apply {
+            remove("p$bookId")
+            perFormat.forEach { remove(it) }
+        }.apply()
     }
 
     fun readingIds(): Set<Long> =
@@ -95,13 +116,15 @@ class Settings(context: Context) {
             .toMap()
 
     fun clearProgress(bookId: Long) {
-        reading.edit()
-            .remove("p$bookId")
-            .remove("t$bookId")
-            .remove("o$bookId")
-            .remove("c$bookId")
-            .remove("f$bookId")
-            .apply()
+        val perFormat = reading.all.keys.filter { it.startsWith("pf$bookId:") }
+        reading.edit().apply {
+            remove("p$bookId")
+            remove("t$bookId")
+            remove("o$bookId")
+            remove("c$bookId")
+            remove("f$bookId")
+            perFormat.forEach { remove(it) }
+        }.apply()
     }
 
     // ---- How many times each book was read through -------------------------
