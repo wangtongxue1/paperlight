@@ -319,6 +319,31 @@
 
   // ---------- metrics ----------
 
+  // Scroll mode shows the SAME page counter as the paged mode, so it needs
+  // the paged pagination even while scrolling. Measure it by building the
+  // pager for one synchronous layout and tearing it right back down — no
+  // paint happens in between, so the reader never sees it. The result is
+  // cached until the content or the typography changes.
+  var pagedPagesCache = 0;
+
+  function invalidatePagedPages() { pagedPagesCache = 0; }
+
+  function measurePagedPages() {
+    if (pagedPagesCache > 0) return pagedPagesCache;
+    if (!pager && !body.firstChild) return 0;
+    var sel = window.getSelection && window.getSelection();
+    if (sel && !sel.isCollapsed) return 0; // moving nodes would break it
+    var y = window.scrollY || 0;
+    enablePaged();
+    var n = pageCount();
+    disablePaged();
+    // Stamp the restore as our own scroll so it never reads as a swipe.
+    prog(600);
+    window.scrollTo(0, y);
+    pagedPagesCache = n > 0 ? n : 0;
+    return pagedPagesCache;
+  }
+
   function currentChapter() {
     var s = secs();
     if (R.mode === 'paged' && pager) {
@@ -342,19 +367,26 @@
       R.page = Math.min(R.page, R.pages - 1);
       R.chapter = currentChapter();
       R.ratio = R.pages > 1 ? R.page / (R.pages - 1) : 0;
+      // Keep the counter warm for the scroll mode, so switching modes
+      // shows the very same numbers without a re-measure.
+      pagedPagesCache = R.pages;
       post('metrics', { mode: 'paged', page: R.page + 1, pages: R.pages, chapter: R.chapter, ratio: R.ratio });
     } else {
       var max = doc.scrollHeight - window.innerHeight;
       R.ratio = max > 0 ? Math.min(1, Math.max(0, (window.scrollY || 0) / max)) : 0;
       R.chapter = currentChapter();
-      // Scroll mode counts pages too, one screenful to a page, so the corner
-      // mark and the 进度 sheet read exactly like the paged mode's do. The
-      // count is derived from the same ratio the progress bar uses, so page
-      // and percentage can never disagree with each other.
-      var vh = Math.max(1, window.innerHeight);
-      R.pages = Math.max(1, Math.round(doc.scrollHeight / vh));
-      R.page = R.pages > 1 ? Math.round(R.ratio * (R.pages - 1)) : 0;
-      post('metrics', { mode: 'scroll', page: R.page + 1, pages: R.pages, chapter: R.chapter, ratio: R.ratio });
+      // Same page counter as the paged mode: the total comes from the very
+      // same pagination the paged mode lays out, and the current page maps
+      // from the reading ratio — so both modes show identical numbers.
+      var n = measurePagedPages();
+      if (n > 0) {
+        R.pages = n;
+        R.page = n > 1 ? Math.round(R.ratio * (n - 1)) : 0;
+        post('metrics', { mode: 'scroll', page: R.page + 1, pages: n, chapter: R.chapter, ratio: R.ratio });
+      } else {
+        R.pages = 0; R.page = 0;
+        post('metrics', { mode: 'scroll', page: 0, pages: 0, chapter: R.chapter, ratio: R.ratio });
+      }
     }
   }
 
@@ -373,6 +405,7 @@
   window.addEventListener('scroll', scrollSoon, { passive: true });
 
   window.addEventListener('resize', function () {
+    invalidatePagedPages();
     if (R.mode === 'paged' && pager) { layout(); var r = R.ratio; gotoRatio(r); }
     setTimeout(postMetrics, 60);
   });
@@ -452,6 +485,7 @@
     if (range.collapsed) return;
     wrapRange(range, id, style || 'yellow');
     sel.removeAllRanges();
+    invalidatePagedPages();
     setTimeout(postMetrics, 60);
   };
 
@@ -463,6 +497,7 @@
     var range = root ? findText(root, text) : null;
     if (!range) range = findText(body, text);
     if (range) wrapRange(range, id, style || 'yellow');
+    invalidatePagedPages();
     setTimeout(postMetrics, 60);
   };
 
@@ -483,6 +518,7 @@
       parent.removeChild(el);
       parent.normalize();
     }
+    invalidatePagedPages();
     setTimeout(postMetrics, 60);
   };
 
@@ -576,6 +612,7 @@
         ranges[k].insertNode(span);
       } catch (e) { }
     }
+    invalidatePagedPages();
     post('search', { count: ranges.length });
   };
 
@@ -604,6 +641,7 @@
       parent.removeChild(el);
       parent.normalize();
     }
+    invalidatePagedPages();
   };
 
   // ---------- automatic page turning ----------
@@ -652,6 +690,7 @@
   };
 
   R.setFontScale = function (s) {
+    invalidatePagedPages();
     body.style.fontSize = (20 * s) + 'px';
     if (R.mode === 'paged' && pager) { layout(); gotoRatio(R.ratio); }
     setTimeout(postMetrics, 80);
@@ -672,6 +711,7 @@
   R.setLineHeight = function (h) {
     var v = Math.min(2.4, Math.max(1.2, parseFloat(h) || 0));
     if (!v) return;
+    invalidatePagedPages();
     body.style.lineHeight = v;
     if (R.mode === 'paged' && pager) { layout(); gotoRatio(R.ratio); }
     setTimeout(postMetrics, 80);
@@ -682,6 +722,7 @@
     body.style.fontFamily = (f === 'sans')
       ? "-apple-system, 'Noto Sans', 'Source Han Sans SC', sans-serif"
       : "Georgia, 'Noto Serif', 'Songti SC', serif";
+    invalidatePagedPages();
     if (R.mode === 'paged' && pager) { layout(); gotoRatio(R.ratio); }
     setTimeout(postMetrics, 80);
   };
