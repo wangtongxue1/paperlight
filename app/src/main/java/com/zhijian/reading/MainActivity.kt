@@ -361,6 +361,7 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
                     if (book == null || file == null) {
                         LaunchedEffect(Unit) { nav.popBackStack() }
                     } else {
+                        LaunchedEffect(book.id) { vm.markOpened(book.id) }
                         PdfReaderScreen(
                             book = book,
                             file = file,

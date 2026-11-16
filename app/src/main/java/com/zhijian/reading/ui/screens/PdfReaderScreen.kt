@@ -9,7 +9,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -43,6 +45,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -59,6 +62,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import kotlin.math.roundToInt
 
 /**
  * PDFs are fixed-layout: pages render at the screen's pixel width through
@@ -158,8 +162,8 @@ fun PdfReaderScreen(
         val measured = withContext(Dispatchers.IO) { engine.measure() }
         sizes = measured
         pages = measured.size
-        if (initialProgress > 0f && measured.isNotEmpty()) {
-            list.scrollToItem(((initialProgress * measured.size).toInt()).coerceIn(0, measured.size - 1))
+        if (initialProgress > 0f && measured.size > 1) {
+            list.scrollToItem((initialProgress * (measured.size - 1)).roundToInt().coerceIn(0, measured.size - 1))
         }
     }
 
@@ -168,7 +172,9 @@ fun PdfReaderScreen(
         while (true) {
             delay(1500)
             if (pages > 0 && !list.isScrollInProgress) {
-                val p = (((list.firstVisibleItemIndex + 1f) / pages)).coerceIn(0.01f, 1f)
+                // Same scale jumpRatio uses: page 1 is 0%, the last page is
+                // 100%, so resume lands on the very page it left.
+                val p = if (pages > 1) list.firstVisibleItemIndex / (pages - 1f) else 0f
                 progress = p
                 onProgress(p)
             }
@@ -254,6 +260,10 @@ fun PdfReaderScreen(
             )
             else -> LazyColumn(
                 state = list,
+                // The same frame the flowable reader keeps its text in: the
+                // pages flow between the two bars instead of running to the
+                // screen edges, in either chrome state.
+                contentPadding = PaddingValues(top = 61.dp, bottom = 57.dp),
                 modifier = Modifier
                     .fillMaxSize()
                     .pointerInput(Unit) {
@@ -391,11 +401,13 @@ fun PdfReaderScreen(
                     )
                 }
             } else if (pages > 0) {
-                // Quiet footer, Apple Books style, riding the page margin.
+                // Quiet footer, Apple Books style, riding the page margin —
+                // bottom-right, where the flowable reader parks its mark.
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .padding(start = 22.dp, end = 22.dp, bottom = navBottom + 8.dp),
+                        .padding(start = 22.dp, end = 28.dp, bottom = navBottom + 10.dp),
+                    horizontalArrangement = Arrangement.End,
                 ) {
                     Text(
                         text = strings.pdfPageOf(list.firstVisibleItemIndex + 1, pages),
@@ -419,6 +431,9 @@ private fun PdfPage(
     val size = sizes.getOrNull(index)
     val aspect = if (size != null && size.first > 0) size.second.toFloat() / size.first else 1.5f
     var bmp by remember(index) { mutableStateOf(engine.get(index)) }
+    // Reserve the height the rendered bitmap will actually occupy at the
+    // screen's width — a hardcoded 400dp guess leaves a visible gap (or an
+    // overlap) under every page on any screen that isn't exactly 400dp wide.
 
     LaunchedEffect(index, size) {
         if (bmp == null && size != null) {
@@ -430,7 +445,7 @@ private fun PdfPage(
     Box(
         Modifier
             .fillMaxWidth()
-            .height(400.dp * aspect),
+            .height(LocalConfiguration.current.screenWidthDp.dp * aspect),
         contentAlignment = Alignment.Center,
     ) {
         bmp?.let {
