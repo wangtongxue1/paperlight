@@ -324,8 +324,9 @@ fun ReaderScreen(
                 // The engine reports CSS pixels; width is in device pixels.
                 val x = obj.optDouble("x", 0.0).toFloat() * d
                 when {
-                    x < webView.width * 0.32f -> tapZone(-1)
-                    x > webView.width * 0.68f -> tapZone(1)
+                // 30% / 70% cut, same as the PDF reader's tap zones.
+                x < webView.width * 0.3f -> tapZone(-1)
+                x > webView.width * 0.7f -> tapZone(1)
                     else -> chromeOn = !chromeOn
                 }
             }
@@ -761,22 +762,23 @@ fun ReaderScreen(
             }
         }
 
-        // ---- quiet marks, 微信读书 style: chapter top-left, page bottom-right
+        // ---- quiet marks, 微信读书 style: chapter top-left, page bottom-right.
+        // Both reading modes show the same marks — 上下滚动 only differs in
+        // the bottom-right corner, where it has pages to count so it shows a
+        // percentage instead.
         if (!chromeOn) {
             val markInk = chromeInkFaint
-            if (info.mode == "paged") {
-                Text(
-                    text = toc.getOrNull(info.chapter)?.title ?: book.title,
-                    style = Type.numeric.copy(fontSize = 11.sp),
-                    color = markInk,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(start = 28.dp, top = 21.dp)
-                        .fillMaxWidth(0.6f),
-                )
-            }
+            Text(
+                text = toc.getOrNull(info.chapter)?.title ?: book.title,
+                style = Type.numeric.copy(fontSize = 11.sp),
+                color = markInk,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(start = 28.dp, top = 21.dp)
+                    .fillMaxWidth(0.6f),
+            )
             Text(
                 text = if (info.mode == "paged" && info.pages > 0) {
                     strings.pagePos(info.page, info.pages)
@@ -791,7 +793,7 @@ fun ReaderScreen(
             )
         }
 
-        // ---- bottom chrome: chapter nav row + dock, paper-on-paper --------
+        // ---- bottom chrome: dock, paper-on-paper ----------------------------
         AnimatedVisibility(
             visible = chromeOn,
             modifier = Modifier.align(Alignment.BottomCenter),
@@ -1124,26 +1126,6 @@ private fun NavItem(
             )
         }
     }
-}
-
-/** 上一章 / 下一章 at the ends of the chapter strip. */
-@Composable
-private fun ChapterJump(
-    label: String,
-    enabled: Boolean,
-    ink: Color,
-    faint: Color,
-    onClick: () -> Unit,
-) {
-    Text(
-        text = label,
-        style = Type.body,
-        color = if (enabled) ink else faint,
-        modifier = Modifier
-            .clip(RoundedCornerShape(Radius.md.dp))
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 6.dp, vertical = 6.dp),
-    )
 }
 
 /** One tight dark button inside the selection pill. */

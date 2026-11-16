@@ -367,6 +367,7 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
                             dark = dark,
                             initialProgress = vm.progress[book.id] ?: 0f,
                             onProgress = { vm.markRead(book.id, it) },
+                            onReadingSeconds = { vm.addReadingSeconds(book.id, it) },
                             onBack = { nav.popBackStack() },
                         )
                     }
@@ -450,17 +451,6 @@ private fun AppRoot(vm: LibraryViewModel, dark: Boolean) {
                         },
                         onOpenReading = { nav.navigate("collection/reading") },
                         onOpenFinished = { nav.navigate("collection/finished") },
-                    )
-                }
-
-                // Settings opened from a gear/menu entry lands here: a pushed
-                // page with its own back chevron, not a dock tab, so there is
-                // always an obvious way out of it.
-                composable("settings") {
-                    MineScreen(
-                        vm = vm,
-                        showBack = true,
-                        onBack = { nav.popBackStack() },
                     )
                 }
 
