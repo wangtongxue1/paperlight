@@ -584,6 +584,12 @@ fun ReaderScreen(
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val toc = content?.toc.orEmpty()
 
+    // Scroll mode frames the page between the two bars, exactly like the
+    // paged columns' own 61/57 margins. Anything anchored to a page
+    // coordinate (the selection pill) must ride on the same shift.
+    val pageTop = if (paged) 0.dp else 61.dp
+    val pageBottom = if (paged) 0.dp else 57.dp
+
     // Chrome shares the page's paper so the bars feel part of the sheet,
     // 番茄-style, instead of floating app chrome above it.
     val contentBg = when (theme) {
@@ -617,10 +623,17 @@ fun ReaderScreen(
             .fillMaxSize()
             .background(contentBg),
     ) {
-        // ---- the page: full-bleed; chrome floats above it, never reflows it
+        // ---- the page -----------------------------------------------------
+        // Paged mode keeps its text inside the engine's own 61/57 page
+        // margins, so no line is ever cut by the bars. Scroll mode gets the
+        // same frame here: the WebView itself is inset by those margins, so
+        // the text flows between the two bars instead of running to the
+        // screen edges (the engine drops its own vertical padding for it).
         AndroidView(
             factory = { webView },
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = pageTop, bottom = pageBottom),
         )
 
         if (loading || content == null) {
@@ -637,12 +650,12 @@ fun ReaderScreen(
         selection?.let { sel ->
             val config = LocalConfiguration.current
             val dens = LocalDensity.current
-            val yTop = with(dens) { sel.topY.toDp() }
-            val yBot = with(dens) { sel.botY.toDp() }
+            val yTop = with(dens) { sel.topY.toDp() } + pageTop
+            val yBot = with(dens) { sel.botY.toDp() } + pageTop
             val xC = with(dens) { sel.cxD.toDp() }
             val pillW = 218.dp
             val x = (xC - pillW / 2).coerceIn(8.dp, config.screenWidthDp.dp - pillW - 8.dp)
-            val placeAbove = yTop >= 128.dp
+            val placeAbove = yTop >= pageTop + 128.dp
             val y = if (placeAbove) yTop - 106.dp else yBot + 12.dp
             Column(
                 Modifier

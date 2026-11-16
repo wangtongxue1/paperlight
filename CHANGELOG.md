@@ -3,6 +3,13 @@
 纸间阅读 **Paperlight** —— Apple Books 风格的 Android 阅读器（EPUB / PDF / TXT / MOBI / AZW3 / HTML / MD / FB2）。
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.7.2] - 2026-11-16
+
+### Fixed
+
+- 上下滚动模式的正文会一直顶到屏幕最上/最下边缘（跑到上下栏底下），与左右翻页「文字被上下栏框住」不一致：现在滚动模式的页面同样按 61/57 的页边距收在上下栏之间，文字永远不超出上下栏，也不会再压到右下角的页码小字
+- 阅读笔记的选区操作条（划线/复制/分享）随页面坐标同步偏移，不会因为页面下移而错位
+
 ## [1.7.1] - 2026-11-16
 
 ### Fixed

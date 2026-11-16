@@ -51,6 +51,11 @@ object PageTemplate {
                 word-wrap: break-word;
               }
               section.chapter + section.chapter { margin-top: 2.4em; padding-top: 1.8em; border-top: 1px solid var(--rule); }
+              /* Scroll mode is laid out between the two bars by the app, which
+                 insets the WebView by the same 61/57 the paged columns use.
+                 The document must not add that air again, or the first screen
+                 would open with a double gap. */
+              html.pl-scroll body { padding-top: 0; padding-bottom: 0; }
               /* Paged mode: every chapter opens on its own page, 微信读书
                  style — no trailing rule, no leftover of the previous
                  chapter at the top. The forced break is dropped by the

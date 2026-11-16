@@ -74,6 +74,8 @@
     doc.style.overflow = '';
     doc.classList.remove('pl-paged');
     clampScroll();
+  // The reader opens in scroll mode unless the app says otherwise.
+  doc.classList.add('pl-scroll');
   }
 
   // Scroll mode must never pan sideways: a wide child (long code line, an
@@ -335,6 +337,13 @@
     if (sel && !sel.isCollapsed) return 0; // moving nodes would break it
     var y = window.scrollY || 0;
     enablePaged();
+    // In scroll mode the app insets the WebView by the page margins, so the
+    // measuring pager has to grow back to full screen first — otherwise it
+    // would count those margins twice and report extra pages.
+    pager.style.bottom = 'auto';
+    pager.style.top = (-PADTOP) + 'px';
+    pager.style.height = (window.innerHeight + PADTOP + PADBOT) + 'px';
+    layout();
     var n = pageCount();
     disablePaged();
     // Stamp the restore as our own scroll so it never reads as a swipe.
@@ -676,6 +685,9 @@
 
   R.setMode = function (m) {
     if (m !== 'paged' && m !== 'scroll') return;
+    // Scroll mode takes its page margins from the app's inset; the document
+    // must not pad the same air a second time.
+    doc.classList.toggle('pl-scroll', m === 'scroll');
     if (m === R.mode) { if (m === 'paged') layout(); postMetrics(); return; }
     R.mode = m;
     if (m === 'paged') { enablePaged(); gotoRatio(R.ratio); }
